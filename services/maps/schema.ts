@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { SEARCH_RADII } from "./ranking";
+export const radiusSchema = z.number().int().refine(value => (SEARCH_RADII as readonly number[]).includes(value), "지원하지 않는 검색 반경입니다.");
 const pointSchema = z.object({ x: z.number().min(124).max(132), y: z.number().min(32).max(40), address: z.string().max(250) }).strict();
-export const nearbySchema = z.object({ origin: pointSchema, query: z.string().trim().min(1).max(100), radius: z.union([z.literal(1000), z.literal(3000), z.literal(5000), z.literal(10000), z.literal(20000)]), count: z.number().int().min(1).max(15), expand: z.boolean() }).strict();
-export const candidateSchema = z.object({ id: z.string().regex(/^kakao:\d+$/).max(60), name: z.string().min(1).max(200), address: z.string().max(300), latitude: z.number().min(32).max(40), longitude: z.number().min(124).max(132), category: z.string().max(300).optional(), phone: z.string().max(50).optional(), placeUrl: z.string().regex(/^https:\/\/place\.map\.kakao\.com\/\d+$/).optional(), straightDistance: z.number().nonnegative().max(20001).optional() }).strict();
+export const nearbySchema = z.object({ origin: pointSchema, query: z.string().trim().min(1).max(100), radius: radiusSchema, count: z.number().int().min(1).max(15), expand: z.boolean() }).strict();
+export const candidateSchema = z.object({ id: z.string().regex(/^kakao:\d+$/).max(60), name: z.string().min(1).max(200), address: z.string().max(300), latitude: z.number().min(32).max(40), longitude: z.number().min(124).max(132), category: z.string().max(300).optional(), phone: z.string().max(50).optional(), placeUrl: z.string().regex(/^https:\/\/place\.map\.kakao\.com\/\d+$/).optional(), straightDistance: z.number().nonnegative().max(200001).optional() }).strict();
 export const routesSchema = z.object({ origin: pointSchema, candidates: z.array(candidateSchema).min(1).max(4) }).strict();

@@ -31,7 +31,8 @@ const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-0
     if(url.hostname === "dapi.kakao.com") {
       assert.equal(request.headers.get("authorization"), "KakaoAK fixture-kakao");
       assert.equal(url.searchParams.get("sort"), "distance");
-      const radius = Number(url.searchParams.get("radius"));
+      const radius = url.searchParams.has("rect") ? 200000 : Number(url.searchParams.get("radius"));
+      if (radius > 20000) { assert.equal(url.searchParams.has("radius"), false); assert.equal(url.searchParams.get("rect").split(",").length, 4); }
       const matches = url.searchParams.get("query") === "no-results" ? [] : docs.filter(p => helpers.haversine(originFixture,{latitude:Number(p.y),longitude:Number(p.x)}) <= radius);
       const page = Number(url.searchParams.get("page")), start = (page - 1) * 15;
       return WorkerResponse.json({meta:{is_end:start+15>=matches.length,total_count:matches.length,pageable_count:matches.length},documents:matches.slice(start,start+15)});
@@ -75,6 +76,13 @@ try {
   assert.equal(small.searchedRadius,1000); assert.ok(expanded.searchedRadius>=1000);
   if(small.candidates.length<15) assert.ok(expanded.searchedRadius>1000);
   console.log(JSON.stringify({test:"3-small-radius",live,within1km:small.candidates.length,expandedRadius:expanded.searchedRadius,expandedCandidates:expanded.candidates.length}));
+  const wide=await invoke({action:"search",origin,query:"카페",radius:200000,count:5,expand:false});
+  assert.equal(wide.searchedRadius,200000); assert.ok(wide.candidates.length>0);
+  assert.ok(wide.candidates.every(p=>p.straightDistance<=200000));
+  assert.equal(helpers.nearbySchema.safeParse({origin,query:"카페",radius:200000,count:5,expand:false}).success,true);
+  assert.equal(helpers.nearbySchema.safeParse({origin,query:"카페",radius:200001,count:5,expand:false}).success,false);
+  assert.equal(helpers.candidateSchema.safeParse({...wide.candidates[0],straightDistance:199999}).success,true);
+  console.log(JSON.stringify({test:"200km category search and radius validation",live,candidates:wide.candidates.length}));
   const legacy=await invoke({action:"legacy",origin,destination:{x:time.ranked[0].longitude,y:time.ranked[0].latitude,address:time.ranked[0].address}});
   assert.ok(legacy.durationMs>=0&&legacy.distanceM>=0); console.log("PASS: existing direct-route API adapter");
   if(!live) {

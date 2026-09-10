@@ -25,6 +25,7 @@ export default function NearbyExplorer() {
   const [expand, setExpand] = useState(true), [sort, setSort] = useState<SortMode>("time");
   const [status, setStatus] = useState<Status>();
   const [error, setError] = useState("");
+  const [authRequired, setAuthRequired] = useState(false);
   const [progress, setProgress] = useState<NearbyProgress>({ phase: "", done: 0, total: 0 });
   const [busy, setBusy] = useState(false), [selectedId, setSelectedId] = useState<string>();
   const active = useRef<AbortController | null>(null), mounted = useRef(true);
@@ -33,7 +34,7 @@ export default function NearbyExplorer() {
     const controller = new AbortController();
     void fetch("/api/status", { signal: controller.signal }).then(async response => {
       const data = await response.json() as Status & { error?: string };
-      if (!response.ok) throw new Error(data.error || "연결 상태를 확인하지 못했습니다.");
+      if (!response.ok) { if (response.status === 401) setAuthRequired(true); throw new Error(data.error || "연결 상태를 확인하지 못했습니다."); }
       if (!controller.signal.aborted) setStatus(data);
     }).catch(cause => { if (!controller.signal.aborted) setError(cause.message); });
     return () => { mounted.current = false; controller.abort(); active.current?.abort(); };
@@ -86,12 +87,12 @@ export default function NearbyExplorer() {
         <label htmlFor="nearby-query">어떤 장소를 찾으세요?</label><Input id="nearby-query" value={query} required maxLength={100} onChange={event => setQuery(event.target.value)} placeholder="양꼬치, 카페, 스타벅스, 약국…"/>
         <p className="field-note">상호명뿐 아니라 음식·업종 검색어도 입력하세요.</p>
         <div className="nearby-controls"><div><label htmlFor="nearby-radius">검색 반경</label><Select value={String(radius)} onValueChange={v => setRadius(Number(v))} disabled={busy}><SelectTrigger id="nearby-radius"><SelectValue/></SelectTrigger><SelectContent>{SEARCH_RADII.map(r => <SelectItem key={r} value={String(r)}>{r / 1000} km</SelectItem>)}</SelectContent></Select></div><div><label htmlFor="nearby-count">표시 개수</label><Select value={String(count)} onValueChange={v => setCount(Number(v))} disabled={busy}><SelectTrigger id="nearby-count"><SelectValue/></SelectTrigger><SelectContent>{[3, 5, 10, 15].map(n => <SelectItem key={n} value={String(n)}>{n}개</SelectItem>)}</SelectContent></Select></div></div>
-        <label className="expand-toggle" htmlFor="nearby-expand"><Checkbox id="nearby-expand" checked={expand} onCheckedChange={value => setExpand(value === true)}/>후보가 부족하면 반경 확대 (최대 20km)</label>
+        <label className="expand-toggle" htmlFor="nearby-expand"><Checkbox id="nearby-expand" checked={expand} onCheckedChange={value => setExpand(value === true)}/>후보가 부족하면 반경 확대 (최대 200km)</label>
         <Button type="submit" className="calculate-button" disabled={busy || locating || !status?.connected || !status?.placesConnected}><Search size={18}/>{busy ? "후보 비교 중…" : "주변 장소 비교"}</Button>
       </fieldset></form>
       {busy && <Button className="stop-button" type="button" variant="outline" onClick={() => active.current?.abort()}><Square size={14}/>조회 중단</Button>}
-      <p className="field-note">최대 30곳의 후보를 4곳씩 병렬 조회합니다.<br/>검색 반경은 직선거리, 최종 순위는 자동차 경로 기준입니다.</p>
-      <div className="connection">{!status ? "연결 확인 중" : status.connected && status.placesConnected ? "장소 검색 · 자동차 경로 연결됨" : "API 연결 설정이 필요합니다"}</div>
+      <p className="field-note">최대 30곳의 후보를 4곳씩 병렬 조회합니다.<br/>검색 반경은 직선거리, 최종 순위는 자동차 경로 기준입니다. 200km를 선택해도 API가 반환한 가까운 후보 최대 30곳을 비교합니다.</p>
+      <div className="connection">{!status ? (error ? "연결 확인 실패" : "연결 확인 중") : status.connected && status.placesConnected ? "장소 검색 · 자동차 경로 연결됨" : "API 연결 설정이 필요합니다"}</div>
       {status && !status.placesConnected && <p className="connection-help">카카오 REST API 키와 카카오맵 사용 설정을 확인해 주세요.</p>}
     </section><section className="nearby-results" aria-busy={busy}>
       <div className="panel nearby-summary"><div className="result-heading"><h2>{snapshot ? `${snapshot.query} 비교 결과` : "자동차 경로 비교"}</h2>{visible.length > 0 && <Button variant="ghost" size="sm" onClick={csv} aria-label="상위 결과 CSV 다운로드"><Download size={16}/>CSV</Button>}</div>
@@ -99,6 +100,7 @@ export default function NearbyExplorer() {
       {sort === "recommended" && <p className="field-note">후보군 내 정규화 점수: 시간 80% + 거리 20%. 낮을수록 우선하며, 평점·영업 여부는 포함하지 않습니다.</p>}
       {sort === "distance" && <p className="field-note">각 장소의 ‘실시간 빠른 길’에 해당하는 자동차 도로거리순입니다. 최단거리 전용 경로를 계산하는 방식은 아닙니다.</p>}
       {busy && <div className="progress-block" role="status"><p>{progress.phase} · {progress.done}/{progress.total || "…"}</p><Progress value={progress.total ? progress.done / progress.total * 100 : 0}/><p>진행 중 순위는 임시 결과입니다.</p></div>}
+      {authRequired && <p className="notice"><a href="/signin-with-chatgpt?return_to=%2F" target="_top">ChatGPT로 다시 로그인하고 검색하기</a></p>}
       {error && <div className="error-box" role="alert"><CircleAlert size={18}/>{error}</div>}
       {snapshot && <div className="search-context"><p><MapPin size={15}/>출발 · {snapshot.origin.address}</p><p>반경 {snapshot.search.searchedRadius / 1000}km{snapshot.search.expanded ? ` (${snapshot.search.requestedRadius / 1000}km에서 확대)` : ""} · 후보 {snapshot.search.candidates.length}곳 · 경로 성공 {ranked.length}곳 · {snapshot.completed ? "최종 순위" : "일부 결과"}</p><small>장소 목록 {clock(snapshot.search.checkedAt)} 기준{snapshot.search.cached ? " · 5분 이내 캐시" : ""}. 순위는 조회된 후보 안에서만 비교합니다.</small>{snapshot.search.warnings.map(w => <p key={w} className="connection-help">{w}</p>)}</div>}
       {snapshot?.completed && ranked.length < count && <p className="notice" role="status">{ranked.length === 0 ? "비교할 수 있는 경로가 없습니다. 검색어·출발지·반경 또는 실패 내역을 확인해 주세요." : `요청한 ${count}개보다 결과가 적어 ${ranked.length}개만 표시합니다.`}</p>}

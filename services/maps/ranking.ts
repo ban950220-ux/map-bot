@@ -1,6 +1,6 @@
 import type { Point } from "@/lib/types";
 import type { DestinationCandidate, SortMode } from "./types";
-export const SEARCH_RADII = [1000, 3000, 5000, 10000, 20000] as const;
+export const SEARCH_RADII = [1000, 3000, 5000, 10000, 20000, 50000, 100000, 150000, 200000] as const;
 export function haversine(origin: Point, place: DestinationCandidate) {
   const rad = Math.PI / 180;
   const a = Math.sin((place.latitude - origin.y) * rad / 2) ** 2 + Math.cos(origin.y * rad) * Math.cos(place.latitude * rad) * Math.sin((place.longitude - origin.x) * rad / 2) ** 2;

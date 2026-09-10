@@ -8,6 +8,15 @@ import type { DestinationCandidate, PlaceProvider, PlaceSearchResult } from "./t
 const cache = new TtlCache<PlaceSearchResult>(300000, 64);
 const categories: Record<string, string> = { "카페": "CE7", "약국": "PM9", "주차장": "PK6", "편의점": "CS2", "음식점": "FD6" };
 const responseSchema = z.object({ meta: z.object({ is_end: z.boolean(), total_count: z.number(), pageable_count: z.number() }), documents: z.array(z.object({ id: z.string(), place_name: z.string(), x: z.string(), y: z.string(), address_name: z.string(), road_address_name: z.string(), category_name: z.string(), phone: z.string().optional(), place_url: z.string().optional() })) });
+// A spherical bounding rectangle covers the requested circle beyond Kakao's
+// 20km radius parameter limit. Exact Haversine filtering is still applied below.
+export function searchArea(origin: Point, radius: number): Record<string, string> {
+  if (radius <= 20000) return { radius: String(radius) };
+  const angular = radius / 6371000;
+  const latitudeDelta = angular * 180 / Math.PI;
+  const longitudeDelta = Math.asin(Math.sin(angular) / Math.cos(origin.y * Math.PI / 180)) * 180 / Math.PI;
+  return { rect: [origin.x - longitudeDelta, origin.y - latitudeDelta, origin.x + longitudeDelta, origin.y + latitudeDelta].join(",") };
+}
 export function placesConfigured() { return !!(env as unknown as Record<string, string>).KAKAO_REST_API_KEY; }
 export const kakaoPlaces: PlaceProvider = {
   async searchPlaces(query, origin, radius, limit, signal) {
@@ -28,7 +37,7 @@ export const kakaoPlaces: PlaceProvider = {
       try {
         const category = categories[normalized];
         const url = new URL(`https://dapi.kakao.com/v2/local/search/${category ? "category" : "keyword"}.json`);
-        url.search = new URLSearchParams({ ...(category ? { category_group_code: category } : { query: normalized }), x: String(origin.x), y: String(origin.y), radius: String(radius), sort: "distance", page: String(page), size: "15" }).toString();
+        url.search = new URLSearchParams({ ...(category ? { category_group_code: category } : { query: normalized }), x: String(origin.x), y: String(origin.y), ...searchArea(origin, radius), sort: "distance", page: String(page), size: "15" }).toString();
         const response = await fetch(url, { headers: { Authorization: `KakaoAK ${(env as unknown as Record<string, string>).KAKAO_REST_API_KEY}` }, redirect: "manual", signal: controller.signal });
         if ([401, 403].includes(response.status)) throw new MapsError("카카오 장소 검색 권한을 확인해 주세요. REST API 키와 카카오맵 사용 설정(ON)이 필요합니다.", 502, true);
         if (response.status === 429) throw new MapsError("카카오 장소 검색 이용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.", 429, true);
