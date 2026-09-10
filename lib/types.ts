@@ -1,6 +1,6 @@
 export type Point = { x: number; y: number; address: string };
 export type Store = { id: number; brand: string; name: string; address: string; x: number; y: number };
-export type RouteResult = { id: number; brand: string; name: string; address: string; durationMs: number; distanceM: number; toll: number; fuel: number; checkedAt: string; destination: Point };
+export type RouteResult = { id: number; brand: string; name: string; address: string; durationMs: number; distanceM: number; toll: number; fuel: number; checkedAt: string; destination: Point; path?: [number, number][] };
 export type RouteFailure = { id: number; name: string; message: string };
 export type CompareResponse = { results: RouteResult[]; failures: RouteFailure[] };
 export function formatDuration(ms: number) {

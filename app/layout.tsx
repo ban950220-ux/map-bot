@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./nearby.css";
 
 export const metadata: Metadata = {
   title: "가까운 한 끼 · 실시간 자동차 소요시간",
-  description: "출발지와 도착지의 자동차 이동 시간과 양꼬치 매장의 소요시간을 비교하세요.",
+  description: "주변 장소를 검색하고 실시간 교통을 반영한 자동차 이동시간과 도로거리로 비교하세요.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

@@ -1,5 +1,12 @@
 # 가까운 한 끼
 
+주변 검색 기능과 검증 결과는 [구현 보고서](IMPLEMENTATION.md)를 참고하세요.
+
+주변 검색: 출발지/GPS → 카카오 장소 검색 → NAVER 자동차 경로 최대 4개 동시 계산 → 시간·도로거리·추천 순 Top N.
+운영 비밀 설정에는 KAKAO_REST_API_KEY도 필요합니다. 키는 소스에 넣지 않습니다.
+모의 검증: `node scripts/check-nearby.mjs`. Windows 자격 증명 관리자의 키로 실제 API 검증: `node scripts/check-nearby.mjs --live`.
+`node scripts/dev-maps.mjs`는 화면 개발용입니다. 로컬 화면에 운영 비밀 설정이 자동 연결되지는 않습니다.
+
 개인용 NAVER Maps 자동차 소요시간 비교 사이트. 출발지와 단일 도착지를 입력하거나 기존 양꼬치 매장 56곳을 비교합니다.
 
 - Geocoding / Directions 5 호출은 서버에서만 수행합니다.

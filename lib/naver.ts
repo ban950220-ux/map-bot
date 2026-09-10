@@ -8,6 +8,8 @@ export function configured() {
   const vars = env as unknown as Record<string, string | undefined>;
   return !!(vars.NAVER_MAPS_CLIENT_ID && vars.NAVER_MAPS_CLIENT_SECRET);
 }
+// This is the browser SDK's public application identifier, never its Secret.
+export function mapClientId() { return (env as unknown as Record<string, string>).NAVER_MAPS_CLIENT_ID || ""; }
 async function naver(path: string, params: Record<string, string>, signal?: AbortSignal) {
   const vars = env as unknown as Record<string, string | undefined>;
   if (!configured()) throw new MapsError("NAVER Maps 연결이 아직 준비되지 않았습니다. 이 사이트를 만든 대화에서 인증정보 연결을 요청해 주세요.", 503, true);
@@ -44,10 +46,14 @@ export async function geocode(address: string, signal?: AbortSignal): Promise<Po
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new MapsError("주소 좌표를 확인하지 못했습니다.");
   return { x, y, address: item.roadAddress || item.jibunAddress || address };
 }
-export async function driving(origin: Point, destination: Point, details: { id: number; brand: string; name: string; address: string }, signal?: AbortSignal): Promise<RouteResult> {
-  const data = await naver("/map-direction/v1/driving", { start: `${origin.x},${origin.y}`, goal: `${destination.x},${destination.y}`, option: "traoptimal", cartype: "1", lang: "ko" }, signal);
-  const summary = data.route?.traoptimal?.[0]?.summary;
+export async function driving(origin: Point, destination: Point, details: { id: number; brand: string; name: string; address: string }, signal?: AbortSignal, options: { option?: "traoptimal" | "trafast"; includePath?: boolean } = {}): Promise<RouteResult> {
+  const option = options.option || "traoptimal";
+  const data = await naver("/map-direction/v1/driving", { start: `${origin.x},${origin.y}`, goal: `${destination.x},${destination.y}`, option, cartype: "1", lang: "ko" }, signal);
+  const route = data.route?.[option]?.[0];
+  const summary = route?.summary;
   if (!summary || data.code !== 0) throw new MapsError("자동차 경로를 찾지 못했습니다. 출발지와 도착지가 같거나 도로로 연결되지 않았을 수 있습니다.", 422);
   if (!Number.isFinite(summary.duration) || !Number.isFinite(summary.distance)) throw new MapsError("경로 응답에 소요시간이 없습니다.");
-  return { ...details, durationMs: summary.duration, distanceM: summary.distance, toll: summary.tollFare || 0, fuel: summary.fuelPrice || 0, checkedAt: new Date().toISOString(), destination };
+  const path = options.includePath && Array.isArray(route.path) && route.path.length <= 10000
+    ? route.path.filter((p: unknown) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) as [number, number][] : undefined;
+  return { ...details, durationMs: summary.duration, distanceM: summary.distance, toll: summary.tollFare || 0, fuel: summary.fuelPrice || 0, checkedAt: new Date().toISOString(), destination, ...(path ? { path } : {}) };
 }
