@@ -5,6 +5,7 @@ import type { DestinationCandidate } from "@/services/maps/types";
 // Only the public browser SDK identifier is used here, never server secrets.
 type MapsSdk = Record<string, any>;
 const browser = () => window as Window & { naver?: { maps: MapsSdk }; navermap_authFailure?: () => void };
+const MAP_RUNTIME_ERROR = "지도를 표시하지 못했습니다. 장소 목록과 자동차 경로 비교는 계속 사용할 수 있습니다.";
 let sdkPromise: Promise<MapsSdk> | undefined;
 function loadSdk(clientId: string) {
   if (browser().naver?.maps) return Promise.resolve(browser().naver!.maps);
@@ -34,36 +35,56 @@ export default function NearbyMap({ clientId, origin, places, selectedId, onSele
   }, [clientId]);
   useEffect(() => {
     if (!sdk || !container.current) return;
-    const map = new sdk.Map(container.current, { center: new sdk.LatLng(origin.y, origin.x), zoom: 12, zoomControl: true });
-    mapRef.current = map;
-    const observer = new ResizeObserver(() => { if (container.current) map.setSize(new sdk.Size(container.current.clientWidth, container.current.clientHeight)); });
-    observer.observe(container.current);
-    return () => { observer.disconnect(); map.destroy(); mapRef.current = null; };
+    let map: MapsSdk | undefined, observer: ResizeObserver | undefined;
+    try {
+      map = new sdk.Map(container.current, { center: new sdk.LatLng(origin.y, origin.x), zoom: 12, zoomControl: true });
+      mapRef.current = map;
+      observer = new ResizeObserver(() => {
+        try { if (container.current) map?.setSize(new sdk.Size(container.current.clientWidth, container.current.clientHeight)); }
+        catch { setError(MAP_RUNTIME_ERROR); }
+      });
+      observer.observe(container.current);
+    } catch {
+      try { map?.destroy?.(); } catch { /* A failed map instance may not support cleanup. */ }
+      mapRef.current = null; queueMicrotask(() => setError(MAP_RUNTIME_ERROR)); return;
+    }
+    return () => {
+      observer?.disconnect();
+      try { map?.destroy?.(); } catch { /* Keep navigation usable if the SDK cleanup fails. */ }
+      mapRef.current = null;
+    };
   }, [sdk]);
   useEffect(() => {
     if (!sdk || !mapRef.current) return;
     const maps = sdk, map = mapRef.current, overlays: any[] = [];
-    const start = new sdk.LatLng(origin.y, origin.x), bounds = new sdk.LatLngBounds(start, start);
-    function marker(position: any, text: string, title: string, selected: boolean, id?: string) {
-      const button = document.createElement("button");
-      button.type = "button"; button.textContent = text; button.title = title; button.setAttribute("aria-label", title);
-      button.className = "destination-marker" + (selected ? " selected" : "") + (!id ? " origin-marker" : "");
-      if (id) button.onclick = () => onSelect(id);
-      overlays.push(new maps.Marker({ map, position, title, icon: { content: button, anchor: new maps.Point(19, 38) }, zIndex: selected ? 100 : 10 }));
-      bounds.extend(position);
-    }
-    marker(start, "출발", origin.address, false);
-    places.forEach((p, index) => {
-      const selected = p.id === selectedId;
-      marker(new sdk.LatLng(p.latitude, p.longitude), String.fromCharCode(65 + index), `${String.fromCharCode(65 + index)} ${p.name}`, selected, p.id);
-      if (p.route?.path.length) {
-        const path = p.route.path.map(([x, y]) => new sdk.LatLng(y, x));
-        overlays.push(new sdk.Polyline({ map, path, strokeColor: selected ? "#145cdd" : "#7489a4", strokeWeight: selected ? 6 : 2, strokeOpacity: selected ? 0.95 : 0.28, zIndex: selected ? 5 : 1 }));
-        if (selected) path.forEach((position: any) => bounds.extend(position));
-      }
+    const clearOverlays = () => overlays.forEach(overlay => {
+      try { maps.Event?.clearInstanceListeners?.(overlay); overlay.setMap?.(null); } catch { /* Ignore third-party cleanup failures. */ }
     });
-    if (places.length) map.fitBounds(bounds, 44); else map.setCenter(start);
-    return () => overlays.forEach(overlay => { sdk.Event.clearInstanceListeners(overlay); overlay.setMap(null); });
+    try {
+      const start = new sdk.LatLng(origin.y, origin.x), bounds = new sdk.LatLngBounds(start, start);
+      function marker(position: any, text: string, title: string, selected: boolean, id?: string) {
+        const button = document.createElement("button");
+        button.type = "button"; button.textContent = text; button.title = title; button.setAttribute("aria-label", title);
+        button.className = "destination-marker" + (selected ? " selected" : "") + (!id ? " origin-marker" : "");
+        if (id) button.onclick = () => onSelect(id);
+        overlays.push(new maps.Marker({ map, position, title, icon: { content: button, anchor: new maps.Point(19, 38) }, zIndex: selected ? 100 : 10 }));
+        bounds.extend(position);
+      }
+      marker(start, "출발", origin.address, false);
+      places.forEach((p, index) => {
+        const selected = p.id === selectedId;
+        marker(new sdk.LatLng(p.latitude, p.longitude), String.fromCharCode(65 + index), `${String.fromCharCode(65 + index)} ${p.name}`, selected, p.id);
+        if (p.route?.path.length) {
+          const path = p.route.path.map(([x, y]) => new sdk.LatLng(y, x));
+          overlays.push(new sdk.Polyline({ map, path, strokeColor: selected ? "#145cdd" : "#7489a4", strokeWeight: selected ? 6 : 2, strokeOpacity: selected ? 0.95 : 0.28, zIndex: selected ? 5 : 1 }));
+          if (selected) path.forEach((position: any) => bounds.extend(position));
+        }
+      });
+      if (places.length) map.fitBounds(bounds, 44); else map.setCenter(start);
+    } catch {
+      clearOverlays(); queueMicrotask(() => setError(MAP_RUNTIME_ERROR)); return;
+    }
+    return clearOverlays;
   }, [sdk, origin, places, selectedId, onSelect]);
   return <div className="nearby-map-wrap"><div ref={container} className="nearby-map" aria-label="출발지와 후보 목적지 지도"/>{!sdk && !error && <p className="map-status" role="status">지도 불러오는 중…</p>}{error && <p className="map-status error-box" role="alert">{error}</p>}</div>;
 }
