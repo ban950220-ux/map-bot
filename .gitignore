@@ -40,6 +40,9 @@ next-env.d.ts
 /.wrangler/
 /.sites-runtime/
 /.agents/
-/.codex/
+/.codex/*
+!/.codex/config.toml
+!/.codex/agents/
+!/.codex/agents/*.toml
 /outputs/
 /work/
