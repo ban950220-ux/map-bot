@@ -64,4 +64,4 @@ npm run lint
 
 `.openai/hosting.json`에는 기존 private Sites 프로젝트가 등록되어 있습니다. `project_id`와 owner-only 접근 범위를 보존합니다. 문서만 바꾼 작업은 사이트를 배포하지 않습니다.
 
-현재 `origin`은 다른 로컬 checkout 경로를 가리키므로 동일 PC에서는 동기화할 수 있지만 여러 PC의 공유 remote 역할은 하지 못합니다. 외부 remote를 연결할 때는 private repository를 사용하고 기존 remote/history를 덮어쓰거나 force push하지 않습니다.
+canonical remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이고 기본 개발 branch는 `main`입니다. 새 환경에서는 이 repository를 clone한 뒤 위 설치·검증 절차를 따릅니다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존하며, history를 rewrite하거나 force push하지 않습니다.

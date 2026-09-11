@@ -16,12 +16,6 @@
   - 실제 기기 GPS를 시험하지 못하면 미검증 범위를 명시한다.
   - test 중 사용한 API source와 검증 시각을 기록하되 credential은 기록하지 않는다.
 
-- [ ] 여러 PC용 private Git remote 마련
-  - 기존 로컬 경로 `origin`과 그 history를 보존한다.
-  - 인증된 Git provider에 private repository를 만들거나 사용자가 제공한 private remote를 연결한다.
-  - force push 없이 local/remote divergence를 확인한다.
-  - `main`의 upstream과 새 clone 절차가 README의 설명과 일치한다.
-
 ## Next
 
 - [ ] WebMCP runtime 검증
@@ -55,10 +49,6 @@
   - credential 없는 CI에서 mock test가 실행 가능해야 한다.
 
 ## Blocked
-
-- [ ] GitHub 등 외부 private remote 생성·연결
-  - Blocker: 현재 `origin`은 로컬 filesystem remote이며 이 세션에는 인증된 Git provider repository 정보가 없다.
-  - 사용자 또는 인증된 provider 접근이 제공되면 public이 아닌 private repository만 사용한다.
 
 - [ ] 실제 GPS와 hosted map/WebMCP end-to-end 확인
   - Blocker: 실제 device permission, 등록된 배포 domain, 지원 browser가 필요하다.

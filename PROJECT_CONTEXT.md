@@ -11,7 +11,7 @@
 - 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
 - 2026-09-11 기준 build, TypeScript 검사, mock upstream을 사용한 workerd 회귀 검사는 통과한다. ESLint는 기존 오류 10개와 경고 2개로 실패한다.
-- Git `main`은 기존 로컬 경로 remote인 `origin/main`보다 2커밋 앞선 상태에서 이번 foundation 작업을 시작했다.
+- canonical Git remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
 ## Tech Stack
 
@@ -116,7 +116,6 @@ npm run lint
 
 - `npm run lint`가 10 errors/2 warnings로 실패한다: 내부 `/` 링크에 `<a>` 사용 2곳, effect 내부 동기 setState 2곳, `NearbyMap.tsx`/`lib/naver.ts`의 explicit `any`, unused expression, effect dependency 경고.
 - 실제 기기 GPS, NAVER map rendering/marker/path, WebMCP 등록·실행은 브라우저 E2E 검증이 남아 있다.
-- `origin`은 다른 로컬 checkout 경로이며 공유 Git hosting remote가 아니다. 여러 PC에서 직접 동기화할 수 없다.
 - `package.json`의 package name은 starter 이름(`site-creator-vinext-starter`)을 유지하고 있어 프로젝트 식별성이 낮다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
 - 200 km 검색도 Kakao가 반환한 최대 45개 POI 중 필터된 최대 30개만 비교하므로 전역 최적을 보장하지 않는다.
@@ -125,12 +124,12 @@ npm run lint
 
 1. 기존 ESLint 오류를 동작 변경 없이 해결해 정적 검사를 green 상태로 만든다.
 2. owner-only 배포 환경에서 핵심 browser flow(GPS 제외 가능), 지도 rendering, WebMCP를 검증한다.
-3. GitHub 등 인증된 private remote를 연결해 여러 PC의 공통 remote를 마련한다.
+3. 새 환경에서 private GitHub repository clone과 검증 명령이 재현되는지 확인한다.
 
 ## Recommended Next Tasks
 
 - `TASKS.md`의 Now 항목 순서대로 lint 정리와 browser smoke test를 수행한다.
-- private remote를 연결할 때 기존 `origin`을 임의로 덮어쓰지 말고 보존/이름 변경 여부를 먼저 결정한다.
+- 다른 환경에서는 canonical GitHub repository를 clone하고 `main`을 기준으로 작업한다. `legacy-origin`은 이 PC의 과거 checkout 보존용이다.
 - package name 정리는 runtime 영향과 Sites build를 확인한 작은 chore로 별도 수행한다.
 
 ## Important Constraints
