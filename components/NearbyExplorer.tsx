@@ -9,13 +9,33 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import NearbyMap from "./NearbyMap";
 import { formatDuration, type Point } from "@/lib/types";
-import { currentLocation, runNearbyComparison, type NearbyProgress, type NearbyQuery } from "@/lib/nearby-client";
+import { currentLocation, runNearbyComparison, type NearbyProgress, type NearbyQuery, type NearbySnapshot } from "@/lib/nearby-client";
 import { eta, rankCandidates, SEARCH_RADII } from "@/services/maps/ranking";
 import type { SortMode } from "@/services/maps/types";
 import { registerNearbyTool } from "@/lib/nearby-webmcp";
 const clock = (date: string) => new Date(date).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
 const sortNames: Record<SortMode, string> = { time: "자동차 시간순", distance: "자동차 거리순", recommended: "종합 추천순" };
 type Status = { connected: boolean; placesConnected: boolean; mapClientId: string };
+type NearbyCheckpoint = { savedAt: number; input: NearbyQuery; progress: NearbyProgress };
+const CHECKPOINT_KEY = "nearby-comparison-checkpoint-v1";
+const CHECKPOINT_TTL = 30 * 60 * 1000;
+function compactProgress(progress: NearbyProgress): NearbyProgress {
+  if (!progress.snapshot) return progress;
+  return { ...progress, snapshot: { ...progress.snapshot, candidates: progress.snapshot.candidates.map(candidate => ({ ...candidate, route: candidate.route ? { ...candidate.route, path: [] } : undefined })) } };
+}
+function saveCheckpoint(input: NearbyQuery, progress: NearbyProgress) {
+  try { sessionStorage.setItem(CHECKPOINT_KEY, JSON.stringify({ savedAt: Date.now(), input, progress: compactProgress(progress) } satisfies NearbyCheckpoint)); }
+  catch { /* Storage can be unavailable or full; the live comparison still works. */ }
+}
+function loadCheckpoint(): NearbyCheckpoint | null {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(CHECKPOINT_KEY) || "null") as NearbyCheckpoint | null;
+    if (!parsed || Date.now() - parsed.savedAt > CHECKPOINT_TTL || typeof parsed.input?.query !== "string" || typeof parsed.input?.address !== "string" || typeof parsed.progress?.phase !== "string") {
+      sessionStorage.removeItem(CHECKPOINT_KEY); return null;
+    }
+    return parsed;
+  } catch { sessionStorage.removeItem(CHECKPOINT_KEY); return null; }
+}
 export default function NearbyExplorer() {
   const [address, setAddress] = useState("경기도 이천시 대산로247번길 50");
   const [location, setLocation] = useState<(Point & { accuracy?: number })>();
@@ -25,12 +45,18 @@ export default function NearbyExplorer() {
   const [expand, setExpand] = useState(true), [sort, setSort] = useState<SortMode>("time");
   const [status, setStatus] = useState<Status>();
   const [error, setError] = useState("");
+  const [recovery, setRecovery] = useState<NearbyCheckpoint | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [progress, setProgress] = useState<NearbyProgress>({ phase: "", done: 0, total: 0 });
   const [busy, setBusy] = useState(false), [selectedId, setSelectedId] = useState<string>();
   const active = useRef<AbortController | null>(null), mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
+    const checkpoint = loadCheckpoint();
+    if (checkpoint) {
+      setAddress(checkpoint.input.address); setLocation(checkpoint.input.location); setQuery(checkpoint.input.query); setRadius(checkpoint.input.radius); setCount(checkpoint.input.count); setExpand(checkpoint.input.expand);
+      setProgress(checkpoint.progress); setRecovery(checkpoint);
+    }
     const controller = new AbortController();
     void fetch("/api/status", { signal: controller.signal }).then(async response => {
       const data = await response.json() as Status & { error?: string };
@@ -39,15 +65,16 @@ export default function NearbyExplorer() {
     }).catch(cause => { if (!controller.signal.aborted) setError(cause.message); });
     return () => { mounted.current = false; controller.abort(); active.current?.abort(); };
   }, []);
-  const run = useCallback(async (input: NearbyQuery) => {
+  const run = useCallback(async (input: NearbyQuery, resume?: NearbySnapshot) => {
     if (active.current) throw new Error("진행 중인 비교를 먼저 중단해 주세요.");
     const controller = new AbortController(); active.current = controller;
-    setBusy(true); setError(""); setSelectedId(undefined); setProgress({ phase: "검색 준비 중", done: 0, total: 0 });
+    const initial: NearbyProgress = resume ? { phase: "중단 지점부터 이어서 조회 중", done: resume.candidates.length, total: resume.search.candidates.length, snapshot: resume } : { phase: "검색 준비 중", done: 0, total: 0 };
+    setBusy(true); setError(""); setRecovery(null); setSelectedId(undefined); setProgress(initial); saveCheckpoint(input, initial);
     setAddress(input.address); setLocation(input.location); setQuery(input.query); setRadius(input.radius); setCount(input.count); setExpand(input.expand);
-    try { return await runNearbyComparison(input, controller.signal, update => { if (mounted.current && !controller.signal.aborted) setProgress(update); }); }
+    try { return await runNearbyComparison(input, controller.signal, update => { if (mounted.current && !controller.signal.aborted) { setProgress(update); saveCheckpoint(input, update); } }, undefined, resume); }
     catch (cause) {
       const message = controller.signal.aborted ? "조회를 중단했습니다. 완료된 후보만 임시 순위로 표시합니다." : cause instanceof Error ? cause.message : "조회하지 못했습니다.";
-      if (mounted.current) setError(message); throw new Error(message);
+      if (mounted.current) { setError(message); setRecovery(loadCheckpoint()); } throw new Error(message);
     } finally { if (active.current === controller) active.current = null; if (mounted.current) setBusy(false); }
   }, []);
   useEffect(() => registerNearbyTool(async input => {
@@ -100,6 +127,7 @@ export default function NearbyExplorer() {
       {sort === "recommended" && <p className="field-note">후보군 내 정규화 점수: 시간 80% + 거리 20%. 낮을수록 우선하며, 평점·영업 여부는 포함하지 않습니다.</p>}
       {sort === "distance" && <p className="field-note">각 장소의 ‘실시간 빠른 길’에 해당하는 자동차 도로거리순입니다. 최단거리 전용 경로를 계산하는 방식은 아닙니다.</p>}
       {busy && <div className="progress-block" role="status"><p>{progress.phase} · {progress.done}/{progress.total || "…"}</p><Progress value={progress.total ? progress.done / progress.total * 100 : 0}/><p>진행 중 순위는 임시 결과입니다.</p></div>}
+      {recovery && !busy && <p className="notice" role="status">{recovery.progress.snapshot?.completed ? "최근 비교 결과를 복원했습니다." : `이전 조회가 중단되어 완료된 ${recovery.progress.snapshot?.candidates.length || 0}곳의 결과를 복원했습니다.`}<br/>{!recovery.progress.snapshot?.completed && <Button type="button" variant="outline" onClick={() => void run(recovery.input, recovery.progress.snapshot).catch(() => {})}>중단 지점부터 이어서 조회</Button>}</p>}
       {authRequired && <p className="notice"><a href="/signin-with-chatgpt?return_to=%2F" target="_top">ChatGPT로 다시 로그인하고 검색하기</a></p>}
       {error && <div className="error-box" role="alert"><CircleAlert size={18}/>{error}</div>}
       {snapshot && <div className="search-context"><p><MapPin size={15}/>출발 · {snapshot.origin.address}</p><p>반경 {snapshot.search.searchedRadius / 1000}km{snapshot.search.expanded ? ` (${snapshot.search.requestedRadius / 1000}km에서 확대)` : ""} · 후보 {snapshot.search.candidates.length}곳 · 경로 성공 {ranked.length}곳 · {snapshot.completed ? "최종 순위" : "일부 결과"}</p><small>장소 목록 {clock(snapshot.search.checkedAt)} 기준{snapshot.search.cached ? " · 5분 이내 캐시" : ""}. 순위는 조회된 후보 안에서만 비교합니다.</small>{snapshot.search.warnings.map(w => <p key={w} className="connection-help">{w}</p>)}</div>}

@@ -9,18 +9,27 @@ export async function postJson<T>(path: string, data: unknown, signal: AbortSign
   if (!response.ok) throw new Error(body.error || "요청을 처리하지 못했습니다.");
   return body as T;
 }
-export async function runNearbyComparison(input: NearbyQuery, signal: AbortSignal, update: (progress: NearbyProgress) => void, post: typeof postJson = postJson) {
+export async function runNearbyComparison(input: NearbyQuery, signal: AbortSignal, update: (progress: NearbyProgress) => void, post: typeof postJson = postJson, resume?: NearbySnapshot) {
   signal.throwIfAborted();
-  update({ phase: "출발지 좌표 확인 중", done: 0, total: 0 });
-  const origin = input.location ? { x: input.location.x, y: input.location.y, address: input.location.address }
-    : await post<Point>("/api/geocode", { address: input.address.trim() }, signal);
-  update({ phase: "주변 장소 후보 검색 중", done: 0, total: 0 });
-  const search = await post<PlaceSearchResult>("/api/places", { origin, query: input.query.trim(), radius: input.radius, count: input.count, expand: input.expand }, signal);
-  const snapshot: NearbySnapshot = { origin, search, query: input.query.trim(), candidates: [], completed: false };
-  update({ phase: "후보별 자동차 경로 비교 중", done: 0, total: search.candidates.length, snapshot: { ...snapshot } });
-  for (let offset = 0; offset < search.candidates.length; offset += 4) {
+  let origin: Point, search: PlaceSearchResult, snapshot: NearbySnapshot;
+  if (resume && resume.query === input.query.trim() && !resume.completed) {
+    origin = resume.origin;
+    search = resume.search;
+    snapshot = { ...resume, candidates: [...resume.candidates], completed: false };
+  } else {
+    update({ phase: "출발지 좌표 확인 중", done: 0, total: 0 });
+    origin = input.location ? { x: input.location.x, y: input.location.y, address: input.location.address }
+      : await post<Point>("/api/geocode", { address: input.address.trim() }, signal);
+    update({ phase: "주변 장소 후보 검색 중", done: 0, total: 0 });
+    search = await post<PlaceSearchResult>("/api/places", { origin, query: input.query.trim(), radius: input.radius, count: input.count, expand: input.expand }, signal);
+    snapshot = { origin, search, query: input.query.trim(), candidates: [], completed: false };
+  }
+  const completedIds = new Set(snapshot.candidates.map(candidate => candidate.id));
+  const pending = search.candidates.filter(candidate => !completedIds.has(candidate.id));
+  update({ phase: "후보별 자동차 경로 비교 중", done: snapshot.candidates.length, total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });
+  for (let offset = 0; offset < pending.length; offset += 4) {
     signal.throwIfAborted();
-    const batch = search.candidates.slice(offset, offset + 4);
+    const batch = pending.slice(offset, offset + 4);
     const response = await post<{ candidates: DestinationCandidate[] }>("/api/nearby-routes", { origin, candidates: batch }, signal);
     signal.throwIfAborted(); snapshot.candidates.push(...response.candidates);
     update({ phase: "후보별 자동차 경로 비교 중", done: snapshot.candidates.length, total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });

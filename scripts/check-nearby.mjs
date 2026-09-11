@@ -108,11 +108,17 @@ try {
       if(path==="/api/places")return time.search;
       return {candidates:body.candidates.map(p=>({...p,drivingDistance:10,drivingDuration:20}))};
     })); assert.equal(posted,2); assert.equal(last.snapshot.completed,false); assert.equal(last.snapshot.candidates.length,4);
+    let resumedPosts=0;
+    const resumed=await helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"양꼬치",radius:5000,count:5,expand:true},new AbortController().signal,()=>{},async(path,body)=>{
+      resumedPosts++; assert.equal(path,"/api/nearby-routes");
+      return {candidates:body.candidates.map(p=>({...p,drivingDistance:10,drivingDuration:20}))};
+    },last.snapshot);
+    assert.equal(resumedPosts,Math.ceil((time.search.candidates.length-last.snapshot.candidates.length)/4)); assert.equal(resumed.candidates.length,time.search.candidates.length); assert.equal(resumed.completed,true);
     const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
     Object.defineProperty(globalThis,"navigator",{configurable:true,value:{geolocation:{getCurrentPosition:(_success,fail)=>fail({code:1})}}});
     await assert.rejects(helpers.currentLocation,/권한이 거부/);
     if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);else delete globalThis.navigator;
-    console.log("PASS: quota, cache TTL, empty results, deduplication, request validation, GPS coordinate payload, location denial and cancellation");
+    console.log("PASS: quota, cache TTL, empty results, deduplication, request validation, GPS coordinate payload, location denial, cancellation and resume");
   }
   console.log(JSON.stringify({result:"PASS",mode:live?"live NAVER + Kakao in workerd":"mock upstream in workerd",gps:"test coordinates, not device GPS"}));
 } finally { await worker.dispose(); }
