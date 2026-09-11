@@ -1,54 +1,143 @@
-# PROJECT_CONTEXT — 가까운 한 끼 지도사이트
+# Project Context
 
-## 목적과 현재 상태
+## Project Purpose
 
-- 개인용 주변 장소 탐색·자동차 경로 비교 사이트다.
-- 출발지 또는 GPS에서 Kakao Local로 후보를 찾고, NAVER Geocoding·Directions 5로 실제 도로 거리와 교통 반영 시간을 계산한다.
-- 2026-09-10 기준 최대 200 km 검색, 최대 30개 후보, 최대 4개 경로 동시 요청, 시간·거리·추천 정렬을 지원한다.
-- 기존 단일 목적지/저장된 양꼬치 56곳 비교는 `LegacyRoutes`로 유지한다.
-- Git 작업 트리는 이 문서 작성 전 깨끗했다. 최근 커밋은 `d393d88`, `42c32fd`, `e60548e`, `8d6f79a`이며, 검색 반경 확대·주변 탐색·Worker 리다이렉트·최초 비공개 사이트 구현 순이다.
+`가까운 한 끼`는 개인용 지도/경로 탐색 웹사이트다. 하나의 목적지를 먼저 정하는 길찾기가 아니라, 출발지와 장소 category 또는 검색어를 입력하면 주변 후보를 찾고 각 후보까지의 실제 자동차 경로·교통 반영 ETA·도로거리를 계산해 비교한다.
 
-## 기술 구조
+## Current Status
 
-- 런타임: Node.js 22+, TypeScript, React 19, Next 16 호환 Vinext, Cloudflare Worker, OpenAI Sites.
-- UI: `app/page.tsx`, `components/NearbyExplorer.tsx`, `components/NearbyMap.tsx`, `components/LegacyRoutes.tsx`.
-- API: `app/api/{geocode,places,nearby-routes,compare,status}/route.ts`.
-- 지도 서비스: `services/maps/`의 입력 스키마, 장소 검색, 경로 계산, 순위, TTL 캐시.
-- 공통 연동: `lib/naver.ts`, `lib/api.ts`, `lib/nearby-client.ts`.
-- 인증: `app/chatgpt-auth.ts`와 API의 `authorize()`가 ChatGPT 사용자 헤더를 검사한다.
-- WebMCP: `lib/nearby-webmcp.ts`가 `compare_nearby_places` 도구를 등록한다. 일반 UI와 같은 조회 흐름을 사용한다.
+- 주변 장소 탐색과 기존 단일 목적지/저장 매장 비교가 모두 구현되어 있다.
+- 주변 탐색은 최대 200 km, Kakao 응답 내 최대 30개 후보, 요청당 최대 4개 경로를 처리한다.
+- 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
+- OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
+- 2026-09-11 기준 build, TypeScript 검사, mock upstream을 사용한 workerd 회귀 검사는 통과한다. ESLint는 기존 오류 10개와 경고 2개로 실패한다.
+- Git `main`은 기존 로컬 경로 remote인 `origin/main`보다 2커밋 앞선 상태에서 이번 foundation 작업을 시작했다.
 
-## 데이터와 외부 서비스
+## Tech Stack
 
-- `lib/stores.json`: 2026-08-17 기준 저장 매장 목록.
-- `db/schema.ts`: 의도적으로 비어 있다. 현재 D1/R2를 쓰지 않으며 `.openai/hosting.json`도 `d1 = null`, `r2 = null`이다.
-- Kakao Local API는 후보 검색, NAVER Maps는 주소 변환·자동차 경로·지도 SDK에 사용한다.
-- 운영 비밀은 `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET`, `KAKAO_REST_API_KEY`다. 값은 소스·문서·로그·브라우저 저장소에 넣지 않는다.
-- 브라우저에는 지도 SDK에 필요한 공개 Client ID 외의 비밀을 전달하지 않는다.
+- Node.js 22 이상, npm (`package-lock.json`)
+- TypeScript 5.9, React 19, Next.js 16 호환 Vinext, Vite 8
+- Cloudflare Workers / Wrangler, OpenAI Sites
+- Tailwind CSS 4, shadcn 계열 UI components, Zod
+- Drizzle/D1 scaffold는 있으나 실제 DB table과 binding은 없음
 
-## 순위와 실패 의미
+## Repository Structure
 
-- 추천 점수는 `services/maps/ranking.ts`의 시간 0.8 + 도로거리 0.2 정규화다. 평점·리뷰·영업 여부는 공급자가 검증해 주지 않으므로 추정하지 않는다.
-- 직선거리는 후보 필터용이고 최종 거리순은 도로 이동거리다.
-- 일부 경로 실패·중단은 완전한 순위로 표시하지 않는다. 인증 실패, 지도 SDK 실패, 장소 검색 실패, 경로 실패를 섞어 단정하지 않는다.
-- Directions 5는 1×N 행렬 API가 아니므로 제한 병렬 호출을 유지한다.
+- `app/`: root page/layout, styling, ChatGPT auth helper, API route handlers
+- `components/`: 주변 탐색·지도·legacy 화면과 공용 UI primitives
+- `services/maps/`: 장소 검색, 지오코딩 adapter, 경로 계산, ranking, schema, TTL cache
+- `lib/`: NAVER client, API auth/error helper, client orchestration, WebMCP, 저장 매장 데이터
+- `scripts/`: build/runtime 지원 및 mock/live 회귀 검사
+- `db/`, `drizzle/`, `examples/d1/`: 현재 비활성인 DB scaffold와 opt-in 예제
+- `.openai/hosting.json`: 기존 Sites 프로젝트와 binding 선언
+- `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`: 영구 작업 규칙, 구조, backlog
+- `IMPLEMENTATION.md`: 2026-09-10 주변 탐색 구현의 상세 기록
 
-## AI 프롬프트 구조
+## Implemented Features
 
-- 사이트 자체는 OpenAI/Anthropic LLM을 호출하지 않는다.
-- AI 연동은 브라우저의 WebMCP 도구 선언뿐이며, 입력은 Zod 스키마로 검증한다.
-- 과거 작업 맥락에서 요구된 핵심은 `출발지 → 여러 POI 후보 → 각 후보의 실시간 자동차 ETA → Top N 정렬`이다. 현재 구현이 이 구조를 반영한다.
+- 주소 또는 사용자 승인 GPS 좌표를 출발지로 사용
+- Kakao Local keyword/category 검색과 반경 확대(1/3/5/10/20/50/100/150/200 km)
+- 최대 3페이지·30개 후보 수집, 중복/반경 밖/비의도 주차장 결과 억제
+- NAVER Geocoding 및 Directions 5 `trafast` 자동차 경로 조회
+- 후보 경로 최대 4개 동시 계산, timeout/abort/부분 실패 처리
+- 교통 ETA순, 도로거리순, ETA 80% + 거리 20% 추천순 정렬
+- 목록, 지도 marker, 선택 경로 visualization, CSV export
+- 검색 중단과 sessionStorage 기반 30분 내 재개
+- 기존 저장 양꼬치 56곳 및 직접 입력 목적지 비교 보존
+- API의 ChatGPT 사용자 header 확인, cross-site request 거부, Zod 입력 검증
+- WebMCP 도구 `compare_nearby_places`, `compare_live_driving_times` 등록
+- isolate-local TTL cache: 지오코딩/장소 5분, 경로 45초
 
-## 변경·검증 경계
+## Partially Implemented Features
 
-- 일반 검증: `npm run build`, `npx tsc --noEmit`.
-- 오프라인 주변 검색 회귀: `node scripts/check-nearby.mjs`.
-- `--live` 검증은 실제 API 사용량과 비밀 접근이 발생하므로 사용자가 명시할 때만 실행한다.
-- `.openai/hosting.json`의 `project_id`와 기존 비공개 접근 범위를 보존한다.
-- 문서·Codex 설정만 바꿀 때는 사이트를 빌드하거나 배포하지 않는다. 제품 소스가 바뀐 경우에만 Sites 절차로 검증하고, 배포는 요청 범위와 접근 수준을 확인한다.
+- 지도 SDK는 NAVER Dynamic Map 활성화와 배포 도메인 등록이 필요하다. 미설정이어도 목록 비교는 계속 동작한다.
+- D1/Drizzle 파일은 starter scaffold뿐이며 schema와 hosted binding이 없다.
+- `RoutingProvider`에는 미래 walking/bicycling/transit type과 matrix interface가 있지만 현재 구현은 NAVER 자동차 단건 경로뿐이다.
+- WebMCP는 코드에 등록되어 있으나 지원 브라우저에서 end-to-end 검증되지 않았다.
 
-## 알려진 후속 점검
+## Current Architecture
 
-- 지도 전용 오류가 남아 있는지는 실제 화면/운영 로그를 별도로 확인해야 한다.
-- DB가 실제로 필요해질 때만 Drizzle 스키마와 D1 마이그레이션을 추가한다.
-- 추천 점수에 새 속성을 넣을 때는 공급자 출처·결측 처리·정규화·UI 설명을 함께 변경한다.
+브라우저의 React Client Components가 same-origin API routes를 호출한다. API는 Sites가 전달한 ChatGPT 사용자 header를 확인하고 입력을 검증한 뒤, 서버에서만 Kakao/NAVER API를 호출한다. 장소 후보는 직선거리로 필터링하고, 후보별 NAVER 경로 결과는 교통 ETA와 도로거리로 정렬한다. 상세 구조는 `ARCHITECTURE.md`를 참조한다.
+
+## Core Data Flow
+
+`주소 또는 GPS → (주소면 NAVER Geocoding) → Kakao 후보 검색 → Haversine 필터/중복 제거 → 4개씩 NAVER 자동차 경로 요청 → 부분 성공 결과 → ETA/도로거리/추천 정렬 → 목록·지도·CSV`
+
+중단 시 완료된 후보의 route path를 제거한 checkpoint만 sessionStorage에 저장하고, 재개 시 미완료 후보만 다시 조회한다.
+
+## External Services
+
+- Kakao Local REST API: keyword/category 기반 후보 검색
+- NAVER Maps Geocoding: 주소를 좌표로 변환
+- NAVER Directions 5: 자동차 경로, 도로거리, 교통 반영 ETA
+- NAVER Maps JavaScript SDK: browser map/marker/path rendering
+- ChatGPT/Sites authentication headers: 사용자 식별 및 비공개 API 접근
+
+서비스가 제공하지 않는 평점·리뷰·영업 상태는 생성하지 않는다.
+
+## Database / Data Model
+
+- 운영 DB 없음. `.openai/hosting.json`의 `d1`과 `r2`는 `null`이다.
+- `db/schema.ts`는 의도적으로 비어 있고 `db/index.ts`는 미래 D1 binding용 helper다.
+- `lib/stores.json`은 legacy 비교용 정적 매장 목록이다.
+- 주요 runtime entity는 `Point`, `DestinationCandidate`, `PlaceSearchResult`, `RouteData`, `NearbySnapshot`이며 API/메모리/sessionStorage에서만 사용된다.
+
+## Environment
+
+필수 runtime 변수 이름:
+
+- `NAVER_MAPS_CLIENT_ID`
+- `NAVER_MAPS_CLIENT_SECRET`
+- `KAKAO_REST_API_KEY`
+
+실제 값은 저장소에 두지 않는다. 배포에서는 Sites secret runtime entries로 관리한다. `.env.example`에는 이름만 있다.
+
+## How to Run
+
+```bash
+npm ci
+npm run dev
+```
+
+개발 서버 기본 포트는 5173이다. 로컬 UI 실행은 Windows credential manager의 운영 키를 자동으로 주입하지 않는다. production-compatible build 후 local Worker는 `npm run start`로 실행한다.
+
+## How to Test
+
+```bash
+npm run build
+npx tsc --noEmit
+node scripts/check-nearby.mjs
+npm run lint
+```
+
+`check-nearby.mjs` 기본 모드는 mock upstream을 workerd에서 실행하며 실제 API key나 호출량을 쓰지 않는다. `--live`는 기존 Windows credential manager와 실제 Kakao/NAVER API를 사용하므로 명시적 허용이 있을 때만 실행한다.
+
+## Known Issues
+
+- `npm run lint`가 10 errors/2 warnings로 실패한다: 내부 `/` 링크에 `<a>` 사용 2곳, effect 내부 동기 setState 2곳, `NearbyMap.tsx`/`lib/naver.ts`의 explicit `any`, unused expression, effect dependency 경고.
+- 실제 기기 GPS, NAVER map rendering/marker/path, WebMCP 등록·실행은 브라우저 E2E 검증이 남아 있다.
+- `origin`은 다른 로컬 checkout 경로이며 공유 Git hosting remote가 아니다. 여러 PC에서 직접 동기화할 수 없다.
+- `package.json`의 package name은 starter 이름(`site-creator-vinext-starter`)을 유지하고 있어 프로젝트 식별성이 낮다.
+- 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
+- 200 km 검색도 Kakao가 반환한 최대 45개 POI 중 필터된 최대 30개만 비교하므로 전역 최적을 보장하지 않는다.
+
+## Current Priorities
+
+1. 기존 ESLint 오류를 동작 변경 없이 해결해 정적 검사를 green 상태로 만든다.
+2. owner-only 배포 환경에서 핵심 browser flow(GPS 제외 가능), 지도 rendering, WebMCP를 검증한다.
+3. GitHub 등 인증된 private remote를 연결해 여러 PC의 공통 remote를 마련한다.
+
+## Recommended Next Tasks
+
+- `TASKS.md`의 Now 항목 순서대로 lint 정리와 browser smoke test를 수행한다.
+- private remote를 연결할 때 기존 `origin`을 임의로 덮어쓰지 말고 보존/이름 변경 여부를 먼저 결정한다.
+- package name 정리는 runtime 영향과 Sites build를 확인한 작은 chore로 별도 수행한다.
+
+## Important Constraints
+
+- NAVER Directions 5는 matrix가 아니다. 후보별 호출과 최대 4개 concurrency를 유지한다.
+- 직선거리는 후보 필터, 도로거리는 route 비교다. 둘을 같은 값처럼 표시하지 않는다.
+- 부분 실패·중단 결과를 완전한 순위로 표시하지 않는다.
+- secret은 서버에서만 사용하며 browser에는 NAVER public Client ID 외의 credential을 전달하지 않는다.
+- ChatGPT 인증, 기존 Sites `project_id`, owner-only 접근 범위를 완화하거나 변경하지 않는다.
+- 실제 DB가 필요하기 전에는 D1 schema/migration을 추가하지 않는다.

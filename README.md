@@ -1,22 +1,67 @@
 # 가까운 한 끼
 
-주변 검색 기능과 검증 결과는 [구현 보고서](IMPLEMENTATION.md)를 참고하세요.
+출발지와 장소 검색어를 입력하면 주변 후보를 찾고, 각 후보까지의 실제 자동차 경로·교통 반영 ETA·도로거리를 비교하는 개인용 지도 탐색 사이트입니다. 기존 저장 매장과 직접 입력 목적지를 비교하는 화면도 별도 탭으로 유지합니다.
 
-주변 검색: 출발지/GPS → 카카오 장소 검색 → NAVER 자동차 경로 최대 4개 동시 계산 → 시간·도로거리·추천 순 Top N.
-운영 비밀 설정에는 KAKAO_REST_API_KEY도 필요합니다. 키는 소스에 넣지 않습니다.
-모의 검증: `node scripts/check-nearby.mjs`. Windows 자격 증명 관리자의 키로 실제 API 검증: `node scripts/check-nearby.mjs --live`.
-`node scripts/dev-maps.mjs`는 화면 개발용입니다. 로컬 화면에 운영 비밀 설정이 자동 연결되지는 않습니다.
+## 핵심 동작
 
-개인용 NAVER Maps 자동차 소요시간 비교 사이트. 출발지와 단일 도착지를 입력하거나 기존 양꼬치 매장 56곳을 비교합니다.
+- Kakao Local로 category/keyword 후보 검색
+- NAVER Geocoding과 Directions 5로 실제 자동차 경로 계산
+- 최대 30개 후보, 후보 4개씩 제한 병렬 조회
+- 시간순, 도로거리순, ETA 80% + 거리 20% 추천순
+- 부분 실패, 중단, 30분 내 이어하기
+- NAVER 지도 marker/route와 CSV 내보내기
+- Sites/ChatGPT 사용자 header를 확인하는 개인용 API
 
-- Geocoding / Directions 5 호출은 서버에서만 수행합니다.
-- Sites 비밀 환경변수: NAVER_MAPS_CLIENT_ID, NAVER_MAPS_CLIENT_SECRET.
-- 사이트는 본인 계정 전용으로 게시하며 API에서도 ChatGPT 인증을 확인합니다.
-- 저장된 매장 주소·좌표는 2026-08-17 목록을 사용하며 경로와 소요시간은 매번 새로 조회합니다.
-- 매장 네 곳씩 조회해 진행률을 표시합니다. 중단 또는 일부 실패 시 완전한 순위라고 표시하지 않습니다.
-- 실제 키 값은 코드·브라우저 저장소·로그에 기록하지 않습니다.
-- WebMCP를 지원하는 브라우저에서는 compare_live_driving_times를 같은 조회 동작으로 제공합니다. 지원하지 않는 브라우저에서는 일반 화면을 사용합니다.
+Directions 5는 다중 목적지 행렬 API로 사용하지 않습니다. 직선거리는 후보 필터에만 쓰고 최종 비교에는 자동차 경로의 도로거리와 ETA를 사용합니다.
 
-개발: npm run dev. 검증: npm run build, npx tsc --noEmit.
+## Requirements
 
-실제 NAVER 주소변환 및 경로 조회 1건 검증 완료 (2026-09-09). WebMCP 런타임 검증 컨텍스트는 현재 작업 도구에 제공되지 않아 등록·실행의 브라우저 검증은 수행하지 않았습니다.
+- Node.js 22.13 이상
+- npm과 `package-lock.json`
+- runtime secret: `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET`, `KAKAO_REST_API_KEY`
+- 지도 화면에는 NAVER Dynamic Map 활성화와 배포 domain 등록 필요
+
+실제 secret은 repository에 저장하지 않습니다. 이름은 `.env.example`을 참고하고 배포 값은 Sites의 secret runtime entries에서 관리합니다.
+
+## Install and Run
+
+```bash
+npm ci
+npm run dev
+```
+
+개발 서버 기본 포트는 5173입니다. `npm run dev`는 Windows credential manager의 운영 키를 자동 주입하지 않습니다. production-compatible build를 만든 뒤 local Worker를 실행하려면 다음을 사용합니다.
+
+```bash
+npm run build
+npm run start
+```
+
+## Validation
+
+```bash
+npm run build
+npx tsc --noEmit
+node scripts/check-nearby.mjs
+npm run lint
+```
+
+기본 주변 검색 검사는 mock Kakao/NAVER 응답을 workerd에서 사용합니다. 실제 API 검증은 credential과 사용량이 필요하므로 명시적으로 승인한 경우에만 `node scripts/check-nearby.mjs --live`를 실행합니다.
+
+2026-09-11 기준 build, typecheck, mock workerd 회귀 검사는 통과합니다. lint는 기존 10 errors/2 warnings가 있으며 상세 내용과 acceptance criteria는 `PROJECT_CONTEXT.md`와 `TASKS.md`에 있습니다.
+
+## Repository as Project Memory
+
+- `AGENTS.md`: 모든 AI 개발 세션의 영구 작업 규칙
+- `PROJECT_CONTEXT.md`: 현재 구현·검증·문제의 snapshot
+- `ARCHITECTURE.md`: 장기 유지해야 할 구성과 데이터 흐름
+- `TASKS.md`: 우선순위와 acceptance criteria가 있는 backlog
+- `IMPLEMENTATION.md`: 주변 탐색 구현의 상세 배경
+
+새 세션은 위 문서와 실제 코드를 함께 확인하고, 의미 있는 변경 후 현재 상태 문서를 갱신해야 합니다.
+
+## Deployment and Git
+
+`.openai/hosting.json`에는 기존 private Sites 프로젝트가 등록되어 있습니다. `project_id`와 owner-only 접근 범위를 보존합니다. 문서만 바꾼 작업은 사이트를 배포하지 않습니다.
+
+현재 `origin`은 다른 로컬 checkout 경로를 가리키므로 동일 PC에서는 동기화할 수 있지만 여러 PC의 공유 remote 역할은 하지 못합니다. 외부 remote를 연결할 때는 private repository를 사용하고 기존 remote/history를 덮어쓰거나 force push하지 않습니다.
