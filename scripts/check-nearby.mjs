@@ -5,15 +5,16 @@ import { readMapsCredentials } from "./maps-test-credentials.mjs";
 const live = process.argv.includes("--live");
 const bindings = live ? readMapsCredentials() : { NAVER_MAPS_CLIENT_ID: "fixture-id", NAVER_MAPS_CLIENT_SECRET: "fixture-secret", KAKAO_REST_API_KEY: "fixture-kakao" };
 const bundle = async contents => (await build({ stdin: { contents, resolveDir: process.cwd(), sourcefile: "nearby-check.ts", loader: "ts" }, bundle: true, write: false, format: "esm", platform: "neutral", external: ["cloudflare:workers"] })).outputFiles[0].text;
-const helpers = await import("data:text/javascript;base64," + Buffer.from(await bundle(`export * from "./services/maps/ranking"; export * from "./services/maps/cache"; export * from "./services/maps/schema"; export * from "./lib/nearby-client";`)).toString("base64"));
+const helpers = await import("data:text/javascript;base64," + Buffer.from(await bundle(`export * from "./services/maps/ranking"; export * from "./services/maps/cache"; export * from "./services/maps/schema"; export * from "./services/maps/searchIntent"; export * from "./lib/nearby-client";`)).toString("base64"));
 const script = await bundle(`
- import { geocode, driving } from "./lib/naver";
+ import { driving } from "./lib/naver";
+ import { geocodeAddress } from "./services/maps/geocoding";
  import { searchNearby } from "./services/maps/placeSearch";
  import { calculateRouteMatrix } from "./services/maps/routeMatrix";
  export default { async fetch(request) {
    const input = await request.json();
    try {
-     if(input.action === "geocode") return Response.json(await geocode(input.address));
+     if(input.action === "geocode") return Response.json(await geocodeAddress(input.address));
      if(input.action === "search") return Response.json(await searchNearby(input.query,input.origin,input.radius,input.count,input.expand));
      if(input.action === "routes") return Response.json(await calculateRouteMatrix(input.origin,input.candidates));
      if(input.action === "legacy") return Response.json(await driving(input.origin,input.destination,{id:0,name:"legacy",brand:"test",address:input.destination.address}));
@@ -30,7 +31,11 @@ const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-0
     const url = new URL(request.url);
     if(url.hostname === "dapi.kakao.com") {
       assert.equal(request.headers.get("authorization"), "KakaoAK fixture-kakao");
-      assert.equal(url.searchParams.get("sort"), "distance");
+      if (!url.searchParams.has("x")) {
+        assert.equal(url.searchParams.get("sort"), "accuracy");
+        return WorkerResponse.json({meta:{is_end:true,total_count:1,pageable_count:1},documents:[{...docs[0],place_name:"SK하이닉스 이천캠퍼스",road_address_name:"경기도 이천시 부발읍 경충대로 2091"}]});
+      }
+      assert.ok(["accuracy","distance"].includes(url.searchParams.get("sort")));
       const radius = url.searchParams.has("rect") ? 200000 : Number(url.searchParams.get("radius"));
       if (radius > 20000) { assert.equal(url.searchParams.has("radius"), false); assert.equal(url.searchParams.get("rect").split(",").length, 4); }
       const matches = url.searchParams.get("query") === "no-results" ? [] : docs.filter(p => helpers.haversine(originFixture,{latitude:Number(p.y),longitude:Number(p.x)}) <= radius);
@@ -39,7 +44,7 @@ const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-0
     }
     assert.equal(url.origin,"https://maps.apigw.ntruss.com");
     assert.equal(request.headers.get("x-ncp-apigw-api-key"),"fixture-secret");
-    if(url.pathname.includes("geocode")) return WorkerResponse.json({addresses:[{x:String(originFixture.x),y:String(originFixture.y),roadAddress:originFixture.address}]});
+    if(url.pathname.includes("geocode")) return WorkerResponse.json({addresses:url.searchParams.get("query")==="이천 SK하이닉스"?[]:[{x:String(originFixture.x),y:String(originFixture.y),roadAddress:originFixture.address}]});
     active++; peak=Math.max(peak,active); await new Promise(resolve=>setTimeout(resolve,20)); active--;
     const id=Math.round((Number(url.searchParams.get("goal").split(",")[0])-127.4)*1000);
     if(quota) return WorkerResponse.json({error:"fixture quota"},{status:429});
@@ -55,6 +60,11 @@ async function invoke(input) {
 }
 try {
   const origin=live ? await invoke({action:"geocode",address:"경기도 이천시 대산로247번길 50"}) : originFixture;
+  if(!live) {
+    const placeOrigin=await invoke({action:"geocode",address:"이천 SK하이닉스"});
+    assert.match(placeOrigin.address,/SK하이닉스/);
+    assert.deepEqual(helpers.parseSearchIntent("주차 가능한 카페"),{rawQuery:"주차 가능한 카페",poiQuery:"카페",parkingPreference:"required"});
+  }
   async function scenario(query,radius,expand,sort,count=5) {
     const search=await invoke({action:"search",origin,query,radius,count,expand});
     assert.ok(search.candidates.length<=30);
@@ -69,6 +79,10 @@ try {
   }
   const time=await scenario("양꼬치",5000,true,"time");
   assert.ok(time.ranked.length>0,"No drivable restaurants found");
+  assert.ok(time.search.candidates.every(p=>p.source==="kakao-local"&&p.parkingStatus==="unknown"&&p.parkingSource==="not-provided"));
+  const parkingIntent=await invoke({action:"search",origin,query:"주차 가능한 카페",radius:5000,count:5,expand:false});
+  assert.equal(parkingIntent.intent.poiQuery,"카페"); assert.equal(parkingIntent.intent.parkingPreference,"required");
+  assert.ok(parkingIntent.candidates.every(p=>!/주차장$/.test(p.name)));
   const distance=await scenario("스타벅스",5000,true,"distance");
   assert.ok(distance.ranked.length>0,"No drivable Starbucks found");
   const small=await invoke({action:"search",origin,query:"양꼬치",radius:1000,count:15,expand:false});

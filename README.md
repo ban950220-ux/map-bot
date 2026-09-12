@@ -7,7 +7,11 @@
 - Kakao Local로 category/keyword 후보 검색
 - NAVER Geocoding과 Directions 5로 실제 자동차 경로 계산
 - 최대 30개 후보, 후보 4개씩 제한 병렬 조회
-- 시간순, 도로거리순, ETA 80% + 거리 20% 추천순
+- 주소뿐 아니라 장소명 출발지와 사용자 승인 GPS 지원
+- 시간순, 도로거리순, 검색 관련도순, ETA 80% + 거리 20% 추천순
+- `주차 가능한 카페` 같은 검색어에서 POI와 주차 조건 분리
+- 주차 데이터가 없을 때 추정하지 않고 `주차정보 확인 필요` 표시
+- 카드에서 전화번호, 도로거리, 직선거리, 장소 출처 비교
 - 부분 실패, 중단, 30분 내 이어하기
 - NAVER 지도 marker/route와 CSV 내보내기
 - Sites/ChatGPT 사용자 header를 확인하는 개인용 API
@@ -48,7 +52,7 @@ npm run lint
 
 기본 주변 검색 검사는 mock Kakao/NAVER 응답을 workerd에서 사용합니다. 실제 API 검증은 credential과 사용량이 필요하므로 명시적으로 승인한 경우에만 `node scripts/check-nearby.mjs --live`를 실행합니다.
 
-2026-09-11 기준 build, typecheck, mock workerd 회귀 검사는 통과합니다. lint는 기존 10 errors/2 warnings가 있으며 상세 내용과 acceptance criteria는 `PROJECT_CONTEXT.md`와 `TASKS.md`에 있습니다.
+2026-09-13 기준 build, typecheck, lint, mock workerd 회귀 검사는 통과합니다. 실제 매장 주차정보는 Kakao Local/NAVER Maps에서 제공하지 않으므로 확인되지 않은 상태로 표시합니다.
 
 ## Repository as Project Memory
 

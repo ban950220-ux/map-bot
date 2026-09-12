@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUpRight, CarFront, Check, CircleAlert, Download, LoaderCircle, MapPin, Route, ShieldCheck, Square, Utensils } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ export default function LegacyRoutes() {
   const best = results[0];
   const displayResults = showAll ? results.slice(1) : results.slice(1, 10);
   return <main className="site-shell">
-    <header className="site-header"><a href="/" className="brand"><span className="brand-mark"><Route size={23}/></span>가까운 한 끼</a><span className="private-label"><ShieldCheck size={16}/>나만의 경로 비교</span></header>
+    <header className="site-header"><Link href="/" className="brand"><span className="brand-mark"><Route size={23}/></span>가까운 한 끼</Link><span className="private-label"><ShieldCheck size={16}/>나만의 경로 비교</span></header>
     <section className="page-intro"><p className="eyebrow">지금 출발한다면</p><h1>어디가 가장 가까울까요?</h1><p>현재 교통상황으로 자동차 이동 시간을 비교하세요.</p></section>
     <div className="workspace">
       <section className="planner panel">

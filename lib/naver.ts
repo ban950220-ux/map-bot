@@ -1,6 +1,12 @@
 import { env } from "cloudflare:workers";
 import type { Point, RouteResult } from "./types";
 
+type NaverResponse = {
+  addresses?: Array<{ x?: string; y?: string; roadAddress?: string; jibunAddress?: string }>;
+  code?: number;
+  route?: Record<string, Array<{ summary?: { duration?: number; distance?: number; tollFare?: number; fuelPrice?: number }; path?: unknown[] }>>;
+};
+
 export class MapsError extends Error {
   constructor(message: string, public status = 502, public fatal = false) { super(message); }
 }
@@ -31,7 +37,7 @@ async function naver(path: string, params: Record<string, string>, signal?: Abor
     if (response.status === 401 || response.status === 403) throw new MapsError("NAVER 인증정보를 확인해야 합니다. 같은 Maps Application의 Client ID와 Secret인지 확인해 주세요.", 502, true);
     if (response.status === 429) throw new MapsError("NAVER Maps 이용 한도에 도달했거나 Geocoding·Directions 5가 활성화되지 않았습니다. 잠시 뒤 다시 시도하거나 이용 설정을 확인해 주세요.", 429, true);
     if (!response.ok) throw new MapsError(`NAVER Maps 요청을 처리하지 못했습니다 (HTTP ${response.status}). 잠시 후 다시 시도해 주세요.`);
-    return await response.json() as Record<string, any>;
+    return await response.json() as NaverResponse;
   } catch (error) {
     if (error instanceof MapsError) throw error;
     if (controller.signal.aborted) throw new MapsError("응답이 늦어 조회가 중단됐습니다. 잠시 후 다시 시도해 주세요.", 504);
@@ -52,8 +58,9 @@ export async function driving(origin: Point, destination: Point, details: { id: 
   const route = data.route?.[option]?.[0];
   const summary = route?.summary;
   if (!summary || data.code !== 0) throw new MapsError("자동차 경로를 찾지 못했습니다. 출발지와 도착지가 같거나 도로로 연결되지 않았을 수 있습니다.", 422);
-  if (!Number.isFinite(summary.duration) || !Number.isFinite(summary.distance)) throw new MapsError("경로 응답에 소요시간이 없습니다.");
+  const durationMs = summary.duration, distanceM = summary.distance;
+  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || typeof distanceM !== "number" || !Number.isFinite(distanceM)) throw new MapsError("경로 응답에 소요시간이 없습니다.");
   const path = options.includePath && Array.isArray(route.path) && route.path.length <= 10000
     ? route.path.filter((p: unknown) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)) as [number, number][] : undefined;
-  return { ...details, durationMs: summary.duration, distanceM: summary.distance, toll: summary.tollFare || 0, fuel: summary.fuelPrice || 0, checkedAt: new Date().toISOString(), destination, ...(path ? { path } : {}) };
+  return { ...details, durationMs, distanceM, toll: summary.tollFare || 0, fuel: summary.fuelPrice || 0, checkedAt: new Date().toISOString(), destination, ...(path ? { path } : {}) };
 }

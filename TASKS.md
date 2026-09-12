@@ -2,7 +2,7 @@
 
 ## Now
 
-- [ ] 기존 ESLint 오류를 동작 변경 없이 해결
+- [x] 기존 ESLint 오류를 동작 변경 없이 해결
   - `npm run lint`가 error/warning 없이 통과한다.
   - root 내부 navigation은 framework Link를 사용한다.
   - checkpoint 초기화와 map SDK loading의 effect가 불필요한 동기 state cascade를 만들지 않는다.
@@ -10,13 +10,18 @@
   - `npm run build`, `npx tsc --noEmit`, `node scripts/check-nearby.mjs`가 계속 통과한다.
 
 - [ ] owner-only 환경의 핵심 browser smoke test
-  - 주소 기반 후보 검색과 결과 정렬을 확인한다.
+  - 주소·장소명 기반 후보 검색, 주차 조건 분리와 결과 정렬을 확인한다.
   - marker와 선택 route path가 표시되며 map 인증 실패 시 목록 기능이 유지된다.
   - 한 후보 실패와 사용자 중단/재개가 성공 결과를 지우지 않는다.
   - 실제 기기 GPS를 시험하지 못하면 미검증 범위를 명시한다.
   - test 중 사용한 API source와 검증 시각을 기록하되 credential은 기록하지 않는다.
 
 ## Next
+
+- [ ] 주차정보 확장 검토
+  - 매장 자체 주차 가능 여부와 인근 공영·일반 주차장을 별도 필드와 UI로 유지한다.
+  - Kakao `PK6` 또는 공공데이터 연동 시 후보마다 무제한 호출하지 않는다.
+  - 직접 확인할 수 없는 값은 계속 `unknown`으로 유지한다.
 
 - [ ] WebMCP runtime 검증
   - 지원 브라우저에서 두 도구의 등록과 schema validation을 확인한다.

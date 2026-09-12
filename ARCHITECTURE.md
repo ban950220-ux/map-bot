@@ -56,14 +56,15 @@ flowchart LR
 
 ## Nearby Data Flow
 
-1. 사용자가 주소 또는 browser geolocation 좌표, query, radius, count를 입력한다.
-2. 주소인 경우 `/api/geocode`가 NAVER Geocoding으로 `Point`를 만든다.
-3. `/api/places`가 Kakao Local을 호출한다. 20 km 초과는 구면 원을 포함하는 rectangle을 보내고 Haversine으로 원 밖 결과를 제거한다.
-4. id 및 이름/좌표 identity로 중복을 제거하고 가까운 후보를 최대 30개 유지한다.
-5. client가 후보를 4개씩 `/api/nearby-routes`에 보낸다. 서버도 최대 4개 worker로 NAVER Directions 5를 호출한다.
-6. 개별 경로 실패는 해당 후보의 `routeError`로 반환한다. fatal auth/quota 오류는 이후 후보를 중단하되 이미 성공한 결과는 보존한다.
-7. 성공 후보를 교통 ETA, 도로거리 또는 `0.8 * normalized ETA + 0.2 * normalized distance`로 정렬한다.
-8. 결과를 목록·지도·CSV로 표시한다. 정렬 변경은 API를 다시 호출하지 않는다.
+1. 사용자가 주소·장소명 또는 browser geolocation 좌표, query, radius, count를 입력한다.
+2. 직접 입력은 `/api/geocode`가 NAVER Geocoding을 먼저 사용하고 주소 결과가 없을 때 Kakao Local 장소명 검색으로 `Point`를 만든다.
+3. 검색어에서 POI와 지원 조건을 분리한다. 주차 조건은 인식하되 provider가 값을 주지 않으면 `unknown`으로 유지한다.
+4. `/api/places`가 Kakao Local을 호출한다. keyword는 관련도와 직선거리를 함께 고려하고 category는 거리순을 사용한다. 20 km 초과는 구면 원을 포함하는 rectangle을 보내고 Haversine으로 원 밖 결과를 제거한다.
+5. id 및 이름/좌표 identity로 중복을 제거하고 후보를 최대 30개 유지한다.
+6. client가 후보를 4개씩 `/api/nearby-routes`에 보낸다. 서버도 최대 4개 worker로 NAVER Directions 5를 호출한다.
+7. 개별 경로 실패는 해당 후보의 `routeError`로 반환한다. fatal auth/quota 오류는 이후 후보를 중단하되 이미 성공한 결과는 보존한다.
+8. 성공 후보를 교통 ETA, 도로거리, 검색 관련도 또는 `0.8 * normalized ETA + 0.2 * normalized distance`로 정렬한다.
+9. 결과를 목록·지도·CSV로 표시한다. 모든 후보 marker와 선택 후보의 경로선만 표시하며 정렬 변경은 API를 다시 호출하지 않는다.
 
 ## Legacy Data Flow
 
@@ -115,6 +116,7 @@ flowchart LR
 - route concurrency를 무제한으로 늘리지 않고 현재 API/UI의 4개 제한을 함께 유지한다.
 - 후보 검색의 직선거리와 최종 자동차 도로거리 의미를 분리한다.
 - traffic timestamp와 source를 결과에 유지하며 cache된 값을 실시간 새 호출처럼 설명하지 않는다.
+- 매장 자체 주차와 주변 주차장 존재를 분리하고 provider가 주지 않은 주차 가능 여부를 추정하지 않는다.
 - provider가 주지 않은 rating/review/open status를 채우지 않는다.
 - secret은 server-only이고 public Client ID 외에는 client response/log/storage로 내보내지 않는다.
 - auth나 owner-only deployment 범위를 기능 편의 때문에 완화하지 않는다.

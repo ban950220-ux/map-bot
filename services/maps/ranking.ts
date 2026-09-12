@@ -6,15 +6,22 @@ export function haversine(origin: Point, place: DestinationCandidate) {
   const a = Math.sin((place.latitude - origin.y) * rad / 2) ** 2 + Math.cos(origin.y * rad) * Math.cos(place.latitude * rad) * Math.sin((place.longitude - origin.x) * rad / 2) ** 2;
   return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, a))));
 }
-export function filterCandidates(items: DestinationCandidate[], origin: Point, radius: number, limit: number) {
+export function filterCandidates(items: DestinationCandidate[], origin: Point, radius: number, limit: number, strategy: "distance" | "balanced" = "distance") {
   const ids = new Set<string>(), identities = new Set<string>();
-  return items.filter(p => {
+  const candidates = items.filter(p => {
     if (![p.latitude, p.longitude].every(Number.isFinite) || p.isClosed === true) return false;
     const identity = `${p.name.replace(/\s+/g, "").toLowerCase()}:${p.latitude.toFixed(5)}:${p.longitude.toFixed(5)}`;
     if (ids.has(p.id) || identities.has(identity)) return false;
     ids.add(p.id); identities.add(identity); return true;
-  }).map(p => ({ ...p, straightDistance: haversine(origin, p) })).filter(p => p.straightDistance <= radius)
-    .sort((a, b) => a.straightDistance - b.straightDistance).slice(0, limit);
+  }).map(p => ({ ...p, straightDistance: haversine(origin, p) })).filter(p => p.straightDistance <= radius);
+  if (strategy === "balanced") {
+    const maxRank = Math.max(1, ...candidates.map(p => p.relevanceRank ?? candidates.length));
+    candidates.sort((a, b) => {
+      const score = (p: DestinationCandidate) => 0.65 * (p.relevanceRank ?? maxRank) / maxRank + 0.35 * (p.straightDistance ?? radius) / Math.max(1, radius);
+      return score(a) - score(b) || (a.straightDistance ?? Infinity) - (b.straightDistance ?? Infinity);
+    });
+  } else candidates.sort((a, b) => (a.straightDistance ?? Infinity) - (b.straightDistance ?? Infinity));
+  return candidates.slice(0, limit);
 }
 export function eta(candidate: DestinationCandidate) { return candidate.trafficDuration ?? candidate.drivingDuration; }
 // Dimensionless weights; rating/reviews/opening flags are deliberately not invented.
@@ -24,7 +31,7 @@ export function rankCandidates(items: DestinationCandidate[], mode: SortMode): D
   const valid = items.filter(p => !p.routeError && Number.isFinite(p.drivingDistance) && (mode === "distance" || Number.isFinite(eta(p))));
   const maxTime = Math.max(1, ...valid.map(p => eta(p) ?? 0));
   const maxDistance = Math.max(1, ...valid.map(p => p.drivingDistance!));
-  const score = (p: DestinationCandidate) => mode === "time" ? eta(p)! : mode === "distance" ? p.drivingDistance!
+  const score = (p: DestinationCandidate) => mode === "time" ? eta(p)! : mode === "distance" ? p.drivingDistance! : mode === "relevance" ? p.relevanceRank ?? Number.MAX_SAFE_INTEGER
     : RECOMMEND_WEIGHTS.time * eta(p)! / maxTime + RECOMMEND_WEIGHTS.distance * p.drivingDistance! / maxDistance;
   return [...valid].sort((a, b) => score(a) - score(b) || (eta(a) ?? Infinity) - (eta(b) ?? Infinity) || a.drivingDistance! - b.drivingDistance! || a.id.localeCompare(b.id));
 }
