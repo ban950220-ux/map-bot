@@ -7,8 +7,8 @@
 ## Current Status
 
 - 주변 장소 탐색과 기존 단일 목적지/저장 매장 비교가 모두 구현되어 있다. 주변 탐색이 기본 제품 흐름이다.
-- 출발지 주소가 NAVER Geocoding에서 확인되지 않으면 Kakao Local 장소명 검색으로 보완한다.
-- `주차 가능한 카페` 같은 입력은 POI 검색어 `카페`와 주차 조건으로 분리한다. 현재 provider가 매장 자체 주차 여부를 제공하지 않으므로 추정하지 않고 `주차정보 확인 필요`로 표시한다.
+- 출발지 주소가 NAVER Geocoding에서 확인되지 않으면 Kakao Local 장소명 검색으로 보완한다. 유효한 장소가 여러 개면 첫 결과를 확정하지 않고 사용자가 선택한다.
+- `주차 가능한 카페` 같은 입력은 POI 검색어 `카페`와 주차 조건으로 분리한다. 매장 자체 주차는 `unknown`을 유지하고, 인근 주차장은 Kakao PK6를 검색 영역당 한 번 조회해 500m 이내 최근접 결과를 별도로 표시한다.
 - 주변 탐색은 최대 200 km, Kakao 응답 내 최대 30개 후보, 요청당 최대 4개 경로를 처리한다.
 - 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
@@ -39,10 +39,11 @@
 ## Implemented Features
 
 - 주소 또는 사용자 승인 GPS 좌표를 출발지로 사용
-- 주소 실패 시 장소명 기반 출발지 검색 fallback
+- 주소 실패 시 장소명 기반 출발지 검색 fallback과 복수 결과 선택
 - Kakao Local keyword/category 검색과 반경 확대(1/3/5/10/20/50/100/150/200 km)
 - 최대 3페이지·30개 후보 수집, 중복/반경 밖/비의도 주차장 결과 억제
 - 자연어 주차 조건과 POI 검색어 분리, 관련도·직선거리 균형 후보 구성
+- `storeParking`과 `nearbyParking`을 분리하고 주차 조건 검색 때만 PK6 영역 조회 1회 후 local spatial matching
 - NAVER Geocoding 및 Directions 5 `trafast` 자동차 경로 조회
 - 후보 경로 최대 4개 동시 계산, timeout/abort/부분 실패 처리
 - 교통 ETA순, 도로거리순, 검색 관련도순, ETA 80% + 거리 20% 추천순 정렬
@@ -57,7 +58,8 @@
 ## Partially Implemented Features
 
 - 지도 SDK는 NAVER Dynamic Map 활성화와 배포 도메인 등록이 필요하다. 미설정이어도 목록 비교는 계속 동작한다.
-- Kakao Local과 NAVER Maps는 매장 자체 주차 여부를 제공하지 않는다. 현재 `parkingStatus`, `parkingSource`, `parkingDescription` 확장 지점은 있으나 실제 값은 `unknown`/`not-provided`다.
+- Kakao Local과 NAVER Maps는 매장 자체 주차 여부를 제공하지 않는다. `storeParking`은 실제 source가 생길 때까지 `unknown`이며, PK6 인근 주차장은 매장 주차로 승격하지 않는다.
+- Kakao PK6는 장소 기본정보만 제공해 요금·운영시간·구획 수를 채우지 않는다. 전국주차장표준데이터 연동은 서비스 키와 운영 범위 결정이 없어 미구현이다.
 - D1/Drizzle 파일은 starter scaffold뿐이며 schema와 hosted binding이 없다.
 - `RoutingProvider`에는 미래 walking/bicycling/transit type과 matrix interface가 있지만 현재 구현은 NAVER 자동차 단건 경로뿐이다.
 - WebMCP는 코드에 등록되어 있으나 지원 브라우저에서 end-to-end 검증되지 않았다.
@@ -68,13 +70,13 @@
 
 ## Core Data Flow
 
-`주소·장소명 또는 GPS → NAVER Geocoding 후 필요 시 Kakao 장소명 fallback → 검색의도 분리 → Kakao 후보 검색 → 관련도·Haversine 필터/중복 제거 → 4개씩 NAVER 자동차 경로 요청 → 부분 성공 결과 → ETA/도로거리/관련도/추천 정렬 → 목록·지도·CSV`
+`주소·장소명 또는 GPS → NAVER Geocoding 후 필요 시 Kakao 장소명 fallback/복수 결과 선택 → 검색의도 분리 → Kakao 후보 검색 → 관련도·Haversine 필터/중복 제거 → (주차 조건이면 PK6 영역 조회 1회와 후보별 local matching) → 4개씩 NAVER 자동차 경로 요청 → 부분 성공 결과 → ETA/도로거리/관련도/추천 정렬 → 목록·지도·CSV`
 
 중단 시 완료된 후보의 route path를 제거한 checkpoint만 sessionStorage에 저장하고, 재개 시 미완료 후보만 다시 조회한다.
 
 ## External Services
 
-- Kakao Local REST API: keyword/category 기반 후보 검색
+- Kakao Local REST API: keyword/category 기반 후보 검색과 PK6 인근 주차장 영역 조회
 - NAVER Maps Geocoding: 주소를 좌표로 변환
 - NAVER Directions 5: 자동차 경로, 도로거리, 교통 반영 ETA
 - NAVER Maps JavaScript SDK: browser map/marker/path rendering
@@ -121,7 +123,8 @@ npm run lint
 
 ## Known Issues
 
-- 매장 자체 주차 가능·불가를 확인할 수 있는 provider가 없어 모든 후보를 `주차정보 확인 필요`로 표시한다. 주변 주차장 존재와 매장 자체 주차는 동일하게 취급하지 않는다.
+- 매장 자체 주차 가능·불가를 확인할 수 있는 provider가 없어 모든 후보의 매장 주차는 `확인 필요`다.
+- PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
 - 실제 기기 GPS, NAVER map rendering/marker/path, WebMCP 등록·실행은 브라우저 E2E 검증이 남아 있다.
 - `package.json`의 package name은 starter 이름(`site-creator-vinext-starter`)을 유지하고 있어 프로젝트 식별성이 낮다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
@@ -129,8 +132,8 @@ npm run lint
 
 ## Current Priorities
 
-1. owner-only 배포 환경에서 장소명 출발지, 주차 조건 분리, 핵심 browser flow와 지도 rendering을 검증한다.
-2. 매장 자체 주차와 구분된 인근 주차장 조회 필요성을 평가한다.
+1. owner-only 배포 환경에서 장소명 출발지 선택, 주차 조건 분리, 핵심 browser flow와 지도 rendering을 검증한다.
+2. 전국주차장표준데이터의 credential과 운영 범위를 정한 뒤 PK6의 부족한 상세정보 보완 여부를 평가한다.
 3. WebMCP와 새 환경의 private repository 재현성을 검증한다.
 
 ## Recommended Next Tasks

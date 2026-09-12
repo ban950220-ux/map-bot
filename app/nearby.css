@@ -39,6 +39,12 @@
 .place-metrics strong { color:#145cdd; font-size:21px; }
 .place-metrics span { font-size:14px; }
 .parking-status { display:flex; align-items:center; gap:5px; color:#5c6674; }
+.origin-choices { display:grid; gap:8px; margin:10px 0 16px; padding:12px; border:1px solid #d8e1ec; border-radius:10px; background:#f7f9fc; }
+.origin-choices>strong { font-size:14px; }
+.origin-choices button { display:grid; gap:2px; min-height:52px; padding:9px 11px; border:1px solid #cad6e5; border-radius:8px; background:white; text-align:left; }
+.origin-choices button:hover,.origin-choices button:focus-visible { border-color:#145cdd; outline:2px solid #145cdd22; }
+.origin-choices span { font-weight:700; }
+.origin-choices small { color:#65758a; overflow-wrap:anywhere; }
 .place-footer { padding:14px 20px; border-top:1px solid var(--border); background:#f7f9fc; color:#65758a; font-size:13px; }
 .place-footer>small { display:block; margin-top:5px; color:#7a8797; }
 .place-footer>div { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; }

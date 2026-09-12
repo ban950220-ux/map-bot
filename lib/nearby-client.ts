@@ -1,8 +1,11 @@
-import type { Point } from "./types";
+import { isOriginSelection, type OriginCandidate, type OriginSelection, type Point } from "./types";
 import type { DestinationCandidate, PlaceSearchResult } from "@/services/maps/types";
 export type NearbyQuery = { address: string; location?: Point; query: string; radius: number; count: number; expand: boolean };
 export type NearbySnapshot = { origin: Point; search: PlaceSearchResult; query: string; candidates: DestinationCandidate[]; completed: boolean };
 export type NearbyProgress = { phase: string; done: number; total: number; snapshot?: NearbySnapshot };
+export class OriginSelectionRequiredError extends Error {
+  constructor(public candidates: OriginCandidate[]) { super("출발 장소를 선택해 주세요."); this.name = "OriginSelectionRequiredError"; }
+}
 export async function postJson<T>(path: string, data: unknown, signal: AbortSignal): Promise<T> {
   const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), signal });
   const body = await response.json().catch(() => ({ error: "로그인 상태를 확인한 뒤 사이트를 새로고침해 주세요." })) as { error?: string };
@@ -18,8 +21,12 @@ export async function runNearbyComparison(input: NearbyQuery, signal: AbortSigna
     snapshot = { ...resume, candidates: [...resume.candidates], completed: false };
   } else {
     update({ phase: "출발지 좌표 확인 중", done: 0, total: 0 });
-    origin = input.location ? { x: input.location.x, y: input.location.y, address: input.location.address }
-      : await post<Point>("/api/geocode", { address: input.address.trim() }, signal);
+    if (input.location) origin = { x: input.location.x, y: input.location.y, address: input.location.address };
+    else {
+      const resolution = await post<Point | OriginSelection>("/api/geocode", { address: input.address.trim() }, signal);
+      if (isOriginSelection(resolution)) throw new OriginSelectionRequiredError(resolution.candidates);
+      origin = resolution;
+    }
     update({ phase: "주변 장소 후보 검색 중", done: 0, total: 0 });
     search = await post<PlaceSearchResult>("/api/places", { origin, query: input.query.trim(), radius: input.radius, count: input.count, expand: input.expand }, signal);
     snapshot = { origin, search, query: input.query.trim(), candidates: [], completed: false };

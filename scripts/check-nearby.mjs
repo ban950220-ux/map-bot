@@ -24,6 +24,7 @@ const script = await bundle(`
 `);
 const originFixture = { x: 127.4, y: 37.27, address: "fixture location" };
 const docs = Array.from({ length: 30 }, (_, i) => ({ id: String(i + 1), place_name: `테스트 매장 ${i + 1}`, x: String(127.4 + (i + 1) * .001), y: String(37.27 + (i + 1) * .001), address_name: "테스트 주소", road_address_name: "테스트 도로", category_name: "음식점", phone: "", place_url: `http://place.map.kakao.com/${i + 1}` }));
+const parkingDocs = [{ id: "8001", place_name: "테스트 공영주차장", x: "127.4011", y: "37.2711", address_name: "주차장 주소", road_address_name: "주차장 도로", category_name: "교통,수송 > 주차장", phone: "", place_url: "http://place.map.kakao.com/8001" }];
 let active = 0, peak = 0, callCount = 0, failureId = 0, quota = false;
 const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-05-15", compatibilityFlags: ["nodejs_compat"], bindings, cf: false,
   ...(live ? {} : { outboundService: async request => {
@@ -33,18 +34,20 @@ const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-0
       assert.equal(request.headers.get("authorization"), "KakaoAK fixture-kakao");
       if (!url.searchParams.has("x")) {
         assert.equal(url.searchParams.get("sort"), "accuracy");
-        return WorkerResponse.json({meta:{is_end:true,total_count:1,pageable_count:1},documents:[{...docs[0],place_name:"SK하이닉스 이천캠퍼스",road_address_name:"경기도 이천시 부발읍 경충대로 2091"}]});
+        const originDocs=url.searchParams.get("query")==="롯데마트" ? [{...docs[0],place_name:"롯데마트 이천점"},{...docs[1],place_name:"롯데마트 경기광주점"}] : [{...docs[0],place_name:"SK하이닉스 이천캠퍼스",road_address_name:"경기도 이천시 부발읍 경충대로 2091"}];
+        return WorkerResponse.json({meta:{is_end:true,total_count:originDocs.length,pageable_count:originDocs.length},documents:originDocs});
       }
       assert.ok(["accuracy","distance"].includes(url.searchParams.get("sort")));
       const radius = url.searchParams.has("rect") ? 200000 : Number(url.searchParams.get("radius"));
       if (radius > 20000) { assert.equal(url.searchParams.has("radius"), false); assert.equal(url.searchParams.get("rect").split(",").length, 4); }
-      const matches = url.searchParams.get("query") === "no-results" ? [] : docs.filter(p => helpers.haversine(originFixture,{latitude:Number(p.y),longitude:Number(p.x)}) <= radius);
+      const sourceDocs=url.searchParams.get("category_group_code")==="PK6" ? parkingDocs : docs;
+      const matches = url.searchParams.get("query") === "no-results" ? [] : sourceDocs.filter(p => helpers.haversine(originFixture,{latitude:Number(p.y),longitude:Number(p.x)}) <= radius);
       const page = Number(url.searchParams.get("page")), start = (page - 1) * 15;
       return WorkerResponse.json({meta:{is_end:start+15>=matches.length,total_count:matches.length,pageable_count:matches.length},documents:matches.slice(start,start+15)});
     }
     assert.equal(url.origin,"https://maps.apigw.ntruss.com");
     assert.equal(request.headers.get("x-ncp-apigw-api-key"),"fixture-secret");
-    if(url.pathname.includes("geocode")) return WorkerResponse.json({addresses:url.searchParams.get("query")==="이천 SK하이닉스"?[]:[{x:String(originFixture.x),y:String(originFixture.y),roadAddress:originFixture.address}]});
+    if(url.pathname.includes("geocode")) return WorkerResponse.json({addresses:["이천 SK하이닉스","롯데마트"].includes(url.searchParams.get("query"))?[]:[{x:String(originFixture.x),y:String(originFixture.y),roadAddress:originFixture.address}]});
     active++; peak=Math.max(peak,active); await new Promise(resolve=>setTimeout(resolve,20)); active--;
     const id=Math.round((Number(url.searchParams.get("goal").split(",")[0])-127.4)*1000);
     if(quota) return WorkerResponse.json({error:"fixture quota"},{status:429});
@@ -63,7 +66,13 @@ try {
   if(!live) {
     const placeOrigin=await invoke({action:"geocode",address:"이천 SK하이닉스"});
     assert.match(placeOrigin.address,/SK하이닉스/);
+    const ambiguousOrigin=await invoke({action:"geocode",address:"롯데마트"});
+    assert.equal(ambiguousOrigin.needsSelection,true); assert.equal(ambiguousOrigin.candidates.length,2); assert.match(ambiguousOrigin.candidates[0].name,/이천점/);
+    await assert.rejects(()=>helpers.runNearbyComparison({address:"롯데마트",query:"카페",radius:5000,count:5,expand:false},new AbortController().signal,()=>{},async(path)=>{
+      assert.equal(path,"/api/geocode"); return ambiguousOrigin;
+    }),error=>error instanceof helpers.OriginSelectionRequiredError&&error.candidates.length===2);
     assert.deepEqual(helpers.parseSearchIntent("주차 가능한 카페"),{rawQuery:"주차 가능한 카페",poiQuery:"카페",parkingPreference:"required"});
+    assert.deepEqual(helpers.parseSearchIntent("카페"),{rawQuery:"카페",poiQuery:"카페",parkingPreference:"none"});
   }
   async function scenario(query,radius,expand,sort,count=5) {
     const search=await invoke({action:"search",origin,query,radius,count,expand});
@@ -79,10 +88,18 @@ try {
   }
   const time=await scenario("양꼬치",5000,true,"time");
   assert.ok(time.ranked.length>0,"No drivable restaurants found");
-  assert.ok(time.search.candidates.every(p=>p.source==="kakao-local"&&p.parkingStatus==="unknown"&&p.parkingSource==="not-provided"));
+  assert.ok(time.search.candidates.every(p=>p.source==="kakao-local"&&p.storeParking.status==="unknown"&&p.storeParking.source==="unknown"));
   const parkingIntent=await invoke({action:"search",origin,query:"주차 가능한 카페",radius:5000,count:5,expand:false});
   assert.equal(parkingIntent.intent.poiQuery,"카페"); assert.equal(parkingIntent.intent.parkingPreference,"required");
   assert.ok(parkingIntent.candidates.every(p=>!/주차장$/.test(p.name)));
+  assert.ok(parkingIntent.candidates.every(p=>p.storeParking.status==="unknown"));
+  assert.equal(parkingIntent.candidates[0].nearbyParking.status,"found"); assert.match(parkingIntent.candidates[0].nearbyParking.name,/주차장/);
+  assert.equal(parkingIntent.candidates[0].storeParking.status,"unknown","Nearby parking must not become store parking");
+  const parkingRouted=await invoke({action:"routes",origin,candidates:parkingIntent.candidates.slice(0,1)});
+  assert.equal(parkingRouted[0].nearbyParking.status,"found"); assert.equal(parkingRouted[0].storeParking.status,"unknown");
+  const parkingLots=await invoke({action:"search",origin,query:"주차장",radius:5000,count:5,expand:false});
+  assert.ok(parkingLots.candidates.some(p=>/주차장$/.test(p.name)),"PK6 parking lot search must not be filtered out");
+  for (const query of ["카페","주유소","대형마트"]) { const quality=await invoke({action:"search",origin,query,radius:5000,count:5,expand:false}); assert.ok(quality.candidates.length>0,`${query} candidates missing`); }
   const distance=await scenario("스타벅스",5000,true,"distance");
   assert.ok(distance.ranked.length>0,"No drivable Starbucks found");
   const small=await invoke({action:"search",origin,query:"양꼬치",radius:1000,count:15,expand:false});
@@ -101,6 +118,15 @@ try {
   assert.ok(legacy.durationMs>=0&&legacy.distanceM>=0); console.log("PASS: existing direct-route API adapter");
   if(!live) {
     assert.notEqual(time.ranked[0].id,distance.ranked[0].id,"Time and road-distance order must be independent");
+    const sortFixture=[
+      {...time.ranked[0],id:"kakao:901",trafficDuration:60000,drivingDuration:60000,drivingDistance:3000,relevanceRank:2},
+      {...time.ranked[0],id:"kakao:902",trafficDuration:180000,drivingDuration:180000,drivingDistance:1000,relevanceRank:0},
+      {...time.ranked[0],id:"kakao:903",trafficDuration:120000,drivingDuration:120000,drivingDistance:2000,relevanceRank:1},
+    ];
+    assert.equal(helpers.rankCandidates(sortFixture,"time")[0].id,"kakao:901");
+    assert.equal(helpers.rankCandidates(sortFixture,"distance")[0].id,"kakao:902");
+    assert.equal(helpers.rankCandidates(sortFixture,"relevance")[0].id,"kakao:902");
+    assert.equal(helpers.rankCandidates(sortFixture,"recommended")[0].id,"kakao:901");
     // A different origin avoids previous successful cache entries for fault injection.
     failureId=3;
     const batch=await invoke({action:"routes",origin:{...origin,x:origin.x+.00001},candidates:time.search.candidates.slice(0,5)});
