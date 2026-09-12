@@ -126,7 +126,6 @@ npm run lint
 - 매장 자체 주차 가능·불가를 확인할 수 있는 provider가 없어 모든 후보의 매장 주차는 `확인 필요`다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
 - 실제 기기 GPS, NAVER map rendering/marker/path, WebMCP 등록·실행은 브라우저 E2E 검증이 남아 있다.
-- `package.json`의 package name은 starter 이름(`site-creator-vinext-starter`)을 유지하고 있어 프로젝트 식별성이 낮다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
 - 200 km 검색도 Kakao가 반환한 최대 45개 POI 중 필터된 최대 30개만 비교하므로 전역 최적을 보장하지 않는다.
 
@@ -140,7 +139,6 @@ npm run lint
 
 - `TASKS.md`의 Now 항목 순서대로 browser smoke test와 주차 데이터 확장을 검토한다.
 - 다른 환경에서는 canonical GitHub repository를 clone하고 `main`을 기준으로 작업한다. `legacy-origin`은 이 PC의 과거 checkout 보존용이다.
-- package name 정리는 runtime 영향과 Sites build를 확인한 작은 chore로 별도 수행한다.
 
 ## Important Constraints
 
