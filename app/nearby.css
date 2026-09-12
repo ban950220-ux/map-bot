@@ -48,7 +48,7 @@
 .place-footer { padding:14px 20px; border-top:1px solid var(--border); background:#f7f9fc; color:#65758a; font-size:13px; }
 .place-footer>small { display:block; margin-top:5px; color:#7a8797; }
 .place-footer>div { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; }
-.place-footer a,.place-footer button { padding:3px 0; border:0; background:none; color:#145cdd; font-size:14px; text-decoration:underline; text-underline-offset:3px; }
+.place-footer a,.place-footer button { display:inline-flex; align-items:center; min-height:44px; padding:8px 0; border:0; background:none; color:#145cdd; font-size:14px; text-decoration:underline; text-underline-offset:3px; }
 .nearby-summary.failures { margin-top:0; }
 .nearby-results .empty-result>svg { margin:0 auto 16px; }
 .nearby-shell .field-note { font-size:14px; }

@@ -14,6 +14,8 @@
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
 - 2026-09-13 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
+- 2026-09-13 production에서 ChatGPT owner 로그인, 상태 API, Kakao 장소/PK6, NAVER Directions/지도, 장소명 선택, 목록·marker 선택 연동과 360/390/430/768/1200px responsive smoke test를 통과했다.
+- production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
 - canonical Git remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
 ## Tech Stack
@@ -125,19 +127,18 @@ npm run lint
 
 - 매장 자체 주차 가능·불가를 확인할 수 있는 provider가 없어 모든 후보의 매장 주차는 `확인 필요`다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
-- 실제 기기 GPS, NAVER map rendering/marker/path, WebMCP 등록·실행은 브라우저 E2E 검증이 남아 있다.
+- 실제 기기 GPS 권한 허용과 비로그인 브라우저의 화면 응답은 자동화 환경에서 직접 확인하지 않았다. GPS 거부 및 API 인증 차단은 regression fixture로 검증한다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
 - 200 km 검색도 Kakao가 반환한 최대 45개 POI 중 필터된 최대 30개만 비교하므로 전역 최적을 보장하지 않는다.
 
 ## Current Priorities
 
-1. owner-only 배포 환경에서 장소명 출발지 선택, 주차 조건 분리, 핵심 browser flow와 지도 rendering을 검증한다.
-2. 전국주차장표준데이터의 credential과 운영 범위를 정한 뒤 PK6의 부족한 상세정보 보완 여부를 평가한다.
-3. WebMCP와 새 환경의 private repository 재현성을 검증한다.
+1. 핵심 release blocker는 없다.
+2. 전국주차장표준데이터와 shared cache는 필요성이 생길 때만 optional로 검토한다.
 
 ## Recommended Next Tasks
 
-- `TASKS.md`의 Now 항목 순서대로 browser smoke test와 주차 데이터 확장을 검토한다.
+- `TASKS.md`의 Future / Optional 항목은 실제 필요성이 생길 때만 검토한다.
 - 다른 환경에서는 canonical GitHub repository를 clone하고 `main`을 기준으로 작업한다. `legacy-origin`은 이 PC의 과거 checkout 보존용이다.
 
 ## Important Constraints

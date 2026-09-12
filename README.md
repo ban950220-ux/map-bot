@@ -52,7 +52,7 @@ npm run lint
 
 기본 주변 검색 검사는 mock Kakao/NAVER 응답을 workerd에서 사용합니다. 실제 API 검증은 credential과 사용량이 필요하므로 명시적으로 승인한 경우에만 `node scripts/check-nearby.mjs --live`를 실행합니다.
 
-2026-09-13 기준 build, typecheck, lint, mock workerd 회귀 검사는 통과합니다. 실제 매장 주차정보는 Kakao Local/NAVER Maps에서 제공하지 않으므로 확인되지 않은 상태로 표시합니다.
+2026-09-13 기준 build, typecheck, lint, mock workerd 회귀와 실제 Kakao/NAVER API smoke test를 통과했습니다. 기존 owner-only Sites 프로젝트에 배포되어 ChatGPT owner 로그인 상태에서 장소 검색, 경로, 지도, 주차 접근성, 모바일 UI를 확인했습니다. 실제 매장 주차정보는 Kakao Local/NAVER Maps에서 제공하지 않으므로 확인되지 않은 상태로 표시합니다.
 
 ## Repository as Project Memory
 
