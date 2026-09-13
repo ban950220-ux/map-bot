@@ -39,6 +39,14 @@
   - 지원되는 ChatGPT in-app browser에서 `compare_nearby_places` 등록과 최신 relevance schema 노출을 확인했다.
   - unsupported browser에서도 일반 UI가 독립적으로 동작한다.
 
+## Production Blockers
+
+- [ ] Sites production provider 연결 재검증
+  - 최신 secret revision 9로 기존 version 12를 재배포했지만 NAVER Geocoding이 upstream 401/403으로 거부된다.
+  - 같은 로컬 NAVER credential은 HTTP 200이므로 Sites에 저장된 ID/Secret 쌍과 NAVER Application의 Geocoding·Directions 5 활성화를 다시 확인한다.
+  - `GOOGLE_PLACES_API_KEY` entry는 존재하지만 production 상태의 `parkingConnected`가 false다. 실제 runtime 값이 비어 있지 않은지 다시 확인한다.
+  - 연결 정상화 후 Directions, Dynamic Map, Google 주차 표본, 360/390/430px 결과 카드 smoke test를 완료한다.
+
 ## Future / Optional
 
 - [ ] 전국주차장표준데이터 optional integration 검토
