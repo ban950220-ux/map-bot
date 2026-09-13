@@ -25,6 +25,12 @@
   - 주차 조건 검색 때 영역 조회 1회 후 후보별 local matching을 사용한다.
   - 직접 확인할 수 없는 매장 주차는 계속 `unknown`으로 유지한다.
 
+- [x] Google Places API (New) 매장 자체 주차 enrichment
+  - Kakao 후보와 Google 결과의 이름·주소·좌표를 보수적으로 대조한다.
+  - 최종 표시 후보에만 최대 3개 concurrency로 Text Search를 호출하며 정렬·marker 선택 때 재호출하지 않는다.
+  - `parkingOptions`의 true 항목만 `available` 근거로 사용하고, 누락·false-only·실패는 `unknown`으로 유지한다.
+  - Google `storeParking`과 Kakao PK6 `nearbyParking`을 분리하고 Google Maps attribution을 표시한다.
+
 - [x] package metadata 정리
   - package name을 `map-bot`으로 변경하고 dependency graph는 유지했다.
   - build/typecheck/lint/regression을 통과했다.

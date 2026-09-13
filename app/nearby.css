@@ -47,12 +47,21 @@
 .origin-choices small { color:#65758a; overflow-wrap:anywhere; }
 .place-footer { padding:14px 20px; border-top:1px solid var(--border); background:#f7f9fc; color:#65758a; font-size:13px; }
 .place-footer>small { display:block; margin-top:5px; color:#7a8797; }
+.google-attribution { font-size:12px; color:#5e5e5e!important; }
+.google-attribution>span[translate="no"] { white-space:nowrap; }
+.google-attribution>a { display:inline; min-height:0; padding:0; font-size:12px; }
 .place-footer>div { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; }
 .place-footer a,.place-footer button { display:inline-flex; align-items:center; min-height:44px; padding:8px 0; border:0; background:none; color:#145cdd; font-size:14px; text-decoration:underline; text-underline-offset:3px; }
 .nearby-summary.failures { margin-top:0; }
 .nearby-results .empty-result>svg { margin:0 auto 16px; }
 .nearby-shell .field-note { font-size:14px; }
 .nearby-shell .error-box { overflow-wrap:anywhere; }
+.legal-page { max-width:820px; }
+.legal-page article { margin:28px 0; padding:28px; }
+.legal-page h1 { margin:0 0 20px; font-size:28px; }
+.legal-page h2 { margin:24px 0 8px; font-size:18px; }
+.legal-page p { color:#52657a; line-height:1.75; }
+.legal-page a,footer a { color:#145cdd; text-decoration:underline; text-underline-offset:3px; }
 
 @media(max-width:900px) {
   .nearby-workspace { grid-template-columns:1fr; }

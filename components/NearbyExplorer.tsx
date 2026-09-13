@@ -13,16 +13,17 @@ import { formatDuration, type OriginCandidate, type Point } from "@/lib/types";
 import { currentLocation, OriginSelectionRequiredError, runNearbyComparison, type NearbyProgress, type NearbyQuery, type NearbySnapshot } from "@/lib/nearby-client";
 import { eta, rankCandidates, SEARCH_RADII } from "@/services/maps/ranking";
 import type { SortMode } from "@/services/maps/types";
+import { withoutStoredGoogleParking } from "@/services/maps/googlePlaceMatching";
 import { registerNearbyTool } from "@/lib/nearby-webmcp";
 const clock = (date: string) => new Date(date).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
 const sortNames: Record<SortMode, string> = { time: "자동차 시간순", distance: "자동차 거리순", relevance: "검색 관련도순", recommended: "종합 추천순" };
-type Status = { connected: boolean; placesConnected: boolean; mapClientId: string };
+type Status = { connected: boolean; placesConnected: boolean; parkingConnected: boolean; mapClientId: string };
 type NearbyCheckpoint = { savedAt: number; input: NearbyQuery; progress: NearbyProgress };
 const CHECKPOINT_KEY = "nearby-comparison-checkpoint-v3";
 const CHECKPOINT_TTL = 30 * 60 * 1000;
 function compactProgress(progress: NearbyProgress): NearbyProgress {
   if (!progress.snapshot) return progress;
-  return { ...progress, snapshot: { ...progress.snapshot, candidates: progress.snapshot.candidates.map(candidate => ({ ...candidate, route: candidate.route ? { ...candidate.route, path: [] } : undefined })) } };
+  return { ...progress, snapshot: { ...progress.snapshot, candidates: progress.snapshot.candidates.map(candidate => withoutStoredGoogleParking({ ...candidate, route: candidate.route ? { ...candidate.route, path: [] } : undefined })) } };
 }
 function saveCheckpoint(input: NearbyQuery, progress: NearbyProgress) {
   try { sessionStorage.setItem(CHECKPOINT_KEY, JSON.stringify({ savedAt: Date.now(), input, progress: compactProgress(progress) } satisfies NearbyCheckpoint)); }
@@ -57,7 +58,7 @@ export default function NearbyExplorer() {
     const checkpoint = loadCheckpoint();
     if (checkpoint) queueMicrotask(() => {
       if (!mounted.current) return;
-      setAddress(checkpoint.input.address); setLocation(checkpoint.input.location); setQuery(checkpoint.input.query); setRadius(checkpoint.input.radius); setCount(checkpoint.input.count); setExpand(checkpoint.input.expand);
+      setAddress(checkpoint.input.address); setLocation(checkpoint.input.location); setQuery(checkpoint.input.query); setRadius(checkpoint.input.radius); setCount(checkpoint.input.count); setExpand(checkpoint.input.expand); if (checkpoint.input.sort) setSort(checkpoint.input.sort);
       setProgress(checkpoint.progress); setRecovery(checkpoint);
     });
     const controller = new AbortController();
@@ -73,7 +74,7 @@ export default function NearbyExplorer() {
     const controller = new AbortController(); active.current = controller;
     const initial: NearbyProgress = resume ? { phase: "중단 지점부터 이어서 조회 중", done: resume.candidates.length, total: resume.search.candidates.length, snapshot: resume } : { phase: "검색 준비 중", done: 0, total: 0 };
     setBusy(true); setError(""); setOriginChoices([]); setRecovery(null); setSelectedId(undefined); setProgress(initial); saveCheckpoint(input, initial);
-    setAddress(input.address); setLocation(input.location); setQuery(input.query); setRadius(input.radius); setCount(input.count); setExpand(input.expand);
+    setAddress(input.address); setLocation(input.location); setQuery(input.query); setRadius(input.radius); setCount(input.count); setExpand(input.expand); if (input.sort) setSort(input.sort);
     try { return await runNearbyComparison(input, controller.signal, update => { if (mounted.current && !controller.signal.aborted) { setProgress(update); saveCheckpoint(input, update); } }, undefined, resume); }
     catch (cause) {
       const message = controller.signal.aborted ? "조회를 중단했습니다. 완료된 후보만 임시 순위로 표시합니다." : cause instanceof Error ? cause.message : "조회하지 못했습니다.";
@@ -102,7 +103,7 @@ export default function NearbyExplorer() {
   const choose = useCallback((id: string) => setSelectedId(id), []);
   function csv() {
     const cell = (value: unknown) => '"' + String(value ?? "").replace(/^[=+@\-\t\r]/, "'$&").replaceAll('"', '""') + '"';
-    const rows = [["정렬", "순위", "장소", "카테고리", "주소", "전화번호", "자동차분", "도로km", "직선km", "매장주차", "매장주차출처", "인근주차장", "인근주차장거리m", "장소출처", "교통반영", "조회시각"], ...visible.map((p, index) => [sortNames[sort], index + 1, p.name, p.category, p.address, p.phone, ((eta(p) || 0) / 60000).toFixed(1), ((p.drivingDistance || 0) / 1000).toFixed(2), ((p.straightDistance || 0) / 1000).toFixed(2), p.storeParking?.status === "available" ? "가능" : p.storeParking?.status === "unavailable" ? "불가" : "확인 필요", p.storeParking?.source || "unknown", p.nearbyParking?.status === "found" ? p.nearbyParking.name : "확인되지 않음", p.nearbyParking?.status === "found" ? Math.round(p.nearbyParking.distance || 0) : "", p.source === "kakao-local" ? "Kakao Local" : "", p.route?.trafficAware ? "반영" : "미확인", p.route?.checkedAt])];
+    const rows = [["정렬", "순위", "장소", "카테고리", "주소", "전화번호", "자동차분", "도로km", "직선km", "매장주차", "매장주차출처", "매장주차유형", "인근주차장", "인근주차장거리m", "장소출처", "교통반영", "조회시각"], ...visible.map((p, index) => [sortNames[sort], index + 1, p.name, p.category, p.address, p.phone, ((eta(p) || 0) / 60000).toFixed(1), ((p.drivingDistance || 0) / 1000).toFixed(2), ((p.straightDistance || 0) / 1000).toFixed(2), p.storeParking?.status === "available" ? "가능" : p.storeParking?.status === "unavailable" ? "불가" : "확인 필요", p.storeParking?.source === "google-places" ? "Google Maps" : p.storeParking?.source || "unknown", p.storeParking?.types?.join(" | ") || "", p.nearbyParking?.status === "found" ? p.nearbyParking.name : "확인되지 않음", p.nearbyParking?.status === "found" ? Math.round(p.nearbyParking.distance || 0) : "", p.source === "kakao-local" ? "Kakao Local" : "", p.route?.trafficAware ? "반영" : "미확인", p.route?.checkedAt])];
     const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.map(row => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = "주변장소_자동차경로.csv"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -110,7 +111,7 @@ export default function NearbyExplorer() {
     <header className="site-header"><Link href="/" className="brand"><span className="brand-mark"><Route size={23}/></span>가까운 한 끼</Link><span className="private-label"><ShieldCheck size={16}/>나만의 경로 비교</span></header>
     <section className="page-intro"><p className="eyebrow">장소를 먼저 정하지 않아도</p><h1>지금 가장 빨리 갈 수 있는 곳</h1><p>주변 후보를 찾고, 각 장소까지의 실제 자동차 경로를 비교합니다.</p></section>
     <div className="nearby-workspace"><section className="panel planner">
-      <h2>주변 장소 탐색</h2><form onSubmit={event => { event.preventDefault(); void run({ address, location, query, radius, count, expand }).catch(() => {}); }}><fieldset disabled={busy || locating}>
+      <h2>주변 장소 탐색</h2><form onSubmit={event => { event.preventDefault(); void run({ address, location, query, radius, count, expand, sort }).catch(() => {}); }}><fieldset disabled={busy || locating}>
         <label htmlFor="nearby-origin">출발지</label><Input id="nearby-origin" value={address} required minLength={3} maxLength={200} onChange={event => { setAddress(event.target.value); setLocation(undefined); setOriginChoices([]); }} placeholder="주소 또는 장소명 (예: 이천 SK하이닉스)"/>
         <Button className="locate-button" type="button" variant="outline" onClick={() => void locate()}><LocateFixed size={16}/>{locating ? "위치 확인 중…" : "현재 위치 사용"}</Button>
         {location && <p className="field-note">위도 {location.y.toFixed(5)} · 경도 {location.x.toFixed(5)}{location.accuracy !== undefined && ` · 정확도 약 ${Math.round(location.accuracy)}m`}</p>}
@@ -123,7 +124,7 @@ export default function NearbyExplorer() {
       </fieldset></form>
       {busy && <Button className="stop-button" type="button" variant="outline" onClick={() => active.current?.abort()}><Square size={14}/>조회 중단</Button>}
       <p className="field-note">최대 30곳의 후보를 4곳씩 병렬 조회합니다.<br/>검색 반경은 직선거리, 최종 순위는 자동차 경로 기준입니다. 200km를 선택해도 API가 반환한 가까운 후보 최대 30곳을 비교합니다.</p>
-      <div className="connection">{!status ? (error ? "연결 확인 실패" : "연결 확인 중") : status.connected && status.placesConnected ? "장소 검색 · 자동차 경로 연결됨" : "API 연결 설정이 필요합니다"}</div>
+      <div className="connection">{!status ? (error ? "연결 확인 실패" : "연결 확인 중") : status.connected && status.placesConnected ? `장소 검색 · 자동차 경로 연결됨${status.parkingConnected ? " · 매장 주차정보 연결됨" : ""}` : "API 연결 설정이 필요합니다"}</div>
       {status && !status.placesConnected && <p className="connection-help">카카오 REST API 키와 카카오맵 사용 설정을 확인해 주세요.</p>}
     </section><section className="nearby-results" aria-busy={busy}>
       <div className="panel nearby-summary"><div className="result-heading"><h2>{snapshot ? `${snapshot.query} 비교 결과` : "자동차 경로 비교"}</h2>{visible.length > 0 && <Button variant="ghost" size="sm" onClick={csv} aria-label="상위 결과 CSV 다운로드"><Download size={16}/>CSV</Button>}</div>
@@ -139,8 +140,8 @@ export default function NearbyExplorer() {
       {!snapshot && !busy && <div className="empty-result"><CarFront size={34}/><h3>양꼬치집도, 카페도 한 번에</h3><p>검색하면 주변 후보의 도로거리와<br/>교통상황을 반영한 예상시간을 비교합니다.</p></div>}
       </div>
       {snapshot && visible.length > 0 && <div className="panel map-panel"><NearbyMap clientId={status?.mapClientId || ""} origin={snapshot.origin} places={visible} selectedId={selected?.id} onSelect={choose}/>{selected && <div className="map-selection"><strong>{selected.name}</strong><span>{formatDuration(eta(selected)!)} · {(selected.drivingDistance! / 1000).toFixed(1)}km</span>{!selected.route?.path.length && <small>경로 선 표시 정보가 없습니다. 시간·거리는 조회된 값입니다.</small>}</div>}</div>}
-      {visible.length > 0 && <ol className="nearby-list">{visible.map((place, index) => <li key={place.id} className={"panel place-card" + (place.id === selected?.id ? " active" : "")}><button className="place-select" type="button" aria-pressed={place.id === selected?.id} onClick={() => choose(place.id)}><span className="place-letter">{String.fromCharCode(65 + index)}</span><div><small>{index + 1}위 · {place.category}</small><h3>{place.name}</h3><p>{place.address}</p>{place.phone && <p className="place-phone"><Phone size={13}/>{place.phone}</p>}</div><div className="place-metrics"><strong>{formatDuration(eta(place)!)}</strong><span>도로 {(place.drivingDistance! / 1000).toFixed(1)}km</span><span className="parking-status"><CircleParking size={14}/>매장 주차: {place.storeParking?.status === "available" ? "가능" : place.storeParking?.status === "unavailable" ? "불가" : "확인 필요"}</span></div></button><div className="place-footer"><span>{place.route?.trafficAware ? "실시간 교통 반영" : "예상 자동차 이동시간"} · 직선 {((place.straightDistance || 0) / 1000).toFixed(1)}km · {place.route && clock(place.route.checkedAt)} 기준 · 통행료 {(place.route?.toll || 0).toLocaleString()}원</span>{snapshot?.search.intent?.parkingPreference === "required" && <small>{place.nearbyParking?.status === "found" ? `인근 주차장: ${place.nearbyParking.name} ${Math.round(place.nearbyParking.distance || 0)}m · 매장 자체 주차와 별개` : "인근 주차장: 확인되지 않음"}</small>}<small>{place.storeParking?.description || "매장 자체 주차정보 확인 필요"} · 장소 출처 Kakao Local</small><div><button type="button" onClick={() => choose(place.id)}>지도에서 보기</button>{place.placeUrl && <a href={place.placeUrl} target="_blank" rel="noopener noreferrer">장소 정보</a>}{place.nearbyParking?.placeUrl && <a href={place.nearbyParking.placeUrl} target="_blank" rel="noopener noreferrer">인근 주차장 정보</a>}<a href={`https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.latitude},${place.longitude}`} target="_blank" rel="noopener noreferrer">길찾기 열기</a></div></div></li>)}</ol>}
+      {visible.length > 0 && <ol className="nearby-list">{visible.map((place, index) => <li key={place.id} className={"panel place-card" + (place.id === selected?.id ? " active" : "")}><button className="place-select" type="button" aria-pressed={place.id === selected?.id} onClick={() => choose(place.id)}><span className="place-letter">{String.fromCharCode(65 + index)}</span><div><small>{index + 1}위 · {place.category}</small><h3>{place.name}</h3><p>{place.address}</p>{place.phone && <p className="place-phone"><Phone size={13}/>{place.phone}</p>}</div><div className="place-metrics"><strong>{formatDuration(eta(place)!)}</strong><span>도로 {(place.drivingDistance! / 1000).toFixed(1)}km</span><span className="parking-status"><CircleParking size={14}/>매장 주차: {place.storeParking?.status === "available" ? place.storeParking.types?.[0] || "가능" : place.storeParking?.status === "unavailable" ? "불가" : "확인 필요"}</span></div></button><div className="place-footer"><span>{place.route?.trafficAware ? "실시간 교통 반영" : "예상 자동차 이동시간"} · 직선 {((place.straightDistance || 0) / 1000).toFixed(1)}km · {place.route && clock(place.route.checkedAt)} 기준 · 통행료 {(place.route?.toll || 0).toLocaleString()}원</span>{snapshot?.search.intent?.parkingPreference === "required" && <small>{place.nearbyParking?.status === "found" ? `인근 주차장: ${place.nearbyParking.name} ${Math.round(place.nearbyParking.distance || 0)}m · 매장 자체 주차와 별개` : "인근 주차장: 확인되지 않음"}</small>}<small>{place.storeParking?.description || "매장 자체 주차정보 확인 필요"} · 장소 출처 Kakao Local</small>{place.storeParking?.source === "google-places" && <small className="google-attribution">매장 주차정보 제공: <span translate="no">Google Maps</span>{place.storeParking.attributions?.map(item => item.providerUri ? <a key={`${item.provider}:${item.providerUri}`} href={item.providerUri} target="_blank" rel="noopener noreferrer"> · {item.provider}</a> : <span key={item.provider}> · {item.provider}</span>)}</small>}<div><button type="button" onClick={() => choose(place.id)}>지도에서 보기</button>{place.placeUrl && <a href={place.placeUrl} target="_blank" rel="noopener noreferrer">장소 정보</a>}{place.nearbyParking?.placeUrl && <a href={place.nearbyParking.placeUrl} target="_blank" rel="noopener noreferrer">인근 주차장 정보</a>}<a href={`https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.latitude},${place.longitude}`} target="_blank" rel="noopener noreferrer">길찾기 열기</a></div></div></li>)}</ol>}
       {failures.length > 0 && <details className="panel nearby-summary failures"><summary>경로 조회 실패 {failures.length}곳</summary>{failures.map(p => <p key={p.id}><strong>{p.name}</strong> · {p.routeError}</p>)}</details>}
-    </section></div><footer>장소 검색: Kakao Local · 경로·지도: NAVER Maps · 승용차 1종, 실시간 빠른 길<br/>교통 조회는 최대 45초 이내 캐시를 사용할 수 있습니다. 장소별 조회 시각과 현재 교통상황에 따라 결과가 달라집니다.<br/>평점·리뷰·영업·폐업 정보는 제공되지 않아 확인되지 않은 상태로 취급합니다. 방문 전 장소 정보를 확인하세요.</footer>
+    </section></div><footer>장소 검색: Kakao Local · 경로·지도: NAVER Maps · 매장 주차정보: <span translate="no">Google Maps</span> · 승용차 1종, 실시간 빠른 길<br/>교통 조회는 최대 45초 이내 캐시를 사용할 수 있습니다. Google 매장 주차정보는 저장하지 않으며 검색 때 표시 후보만 확인합니다.<br/>평점·리뷰·영업·폐업 정보는 제공되지 않아 확인되지 않은 상태로 취급합니다. 방문 전 장소 정보를 확인하세요.<br/><Link href="/privacy">개인정보 및 데이터 이용</Link> · <Link href="/terms">이용조건</Link></footer>
   </main>;
 }

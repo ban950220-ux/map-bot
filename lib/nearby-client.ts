@@ -1,6 +1,7 @@
 import { isOriginSelection, type OriginCandidate, type OriginSelection, type Point } from "./types";
-import type { DestinationCandidate, PlaceSearchResult } from "@/services/maps/types";
-export type NearbyQuery = { address: string; location?: Point; query: string; radius: number; count: number; expand: boolean };
+import { rankCandidates } from "@/services/maps/ranking";
+import type { DestinationCandidate, PlaceSearchResult, SortMode, StoreParking } from "@/services/maps/types";
+export type NearbyQuery = { address: string; location?: Point; query: string; radius: number; count: number; expand: boolean; sort?: SortMode };
 export type NearbySnapshot = { origin: Point; search: PlaceSearchResult; query: string; candidates: DestinationCandidate[]; completed: boolean };
 export type NearbyProgress = { phase: string; done: number; total: number; snapshot?: NearbySnapshot };
 export class OriginSelectionRequiredError extends Error {
@@ -41,6 +42,20 @@ export async function runNearbyComparison(input: NearbyQuery, signal: AbortSigna
     signal.throwIfAborted(); snapshot.candidates.push(...response.candidates);
     update({ phase: "후보별 자동차 경로 비교 중", done: snapshot.candidates.length, total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });
     if (response.candidates.some(p => p.routeErrorFatal)) throw new Error("API 인증 또는 이용 한도로 조회를 중단했습니다. 완료된 결과와 실패 내역을 확인해 주세요.");
+  }
+  const targets = rankCandidates(snapshot.candidates, input.sort || "time").slice(0, input.count);
+  if (targets.length) {
+    update({ phase: "매장 자체 주차정보 확인 중", done: 0, total: targets.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });
+    try {
+      const response = await post<{ enrichments: { id: string; storeParking: StoreParking }[]; warnings: string[] }>("/api/store-parking", { candidates: targets.map(({ id, name, address, latitude, longitude }) => ({ id, name, address, latitude, longitude })) }, signal);
+      signal.throwIfAborted();
+      const parking = new Map(response.enrichments.map(item => [item.id, item.storeParking]));
+      snapshot.candidates = snapshot.candidates.map(candidate => parking.has(candidate.id) ? { ...candidate, storeParking: parking.get(candidate.id) } : candidate);
+      if (response.warnings.length) snapshot.search = { ...snapshot.search, warnings: [...new Set([...snapshot.search.warnings, ...response.warnings])] };
+    } catch (error) {
+      if (signal.aborted) throw error;
+      snapshot.search = { ...snapshot.search, warnings: [...new Set([...snapshot.search.warnings, "매장 자체 주차정보를 확인하지 못했지만 장소와 자동차 경로 결과는 정상적으로 표시합니다."])] };
+    }
   }
   snapshot.completed = true;
   update({ phase: "비교 완료", done: snapshot.candidates.length, total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });

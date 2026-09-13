@@ -8,7 +8,7 @@
 
 - 주변 장소 탐색과 기존 단일 목적지/저장 매장 비교가 모두 구현되어 있다. 주변 탐색이 기본 제품 흐름이다.
 - 출발지 주소가 NAVER Geocoding에서 확인되지 않으면 Kakao Local 장소명 검색으로 보완한다. 유효한 장소가 여러 개면 첫 결과를 확정하지 않고 사용자가 선택한다.
-- `주차 가능한 카페` 같은 입력은 POI 검색어 `카페`와 주차 조건으로 분리한다. 매장 자체 주차는 `unknown`을 유지하고, 인근 주차장은 Kakao PK6를 검색 영역당 한 번 조회해 500m 이내 최근접 결과를 별도로 표시한다.
+- `주차 가능한 카페` 같은 입력은 POI 검색어 `카페`와 주차 조건으로 분리한다. 최종 표시 후보의 매장 자체 주차는 Google Places API (New)로 보강하고, 인근 주차장은 Kakao PK6를 검색 영역당 한 번 조회해 500m 이내 최근접 결과를 별도로 표시한다.
 - 주변 탐색은 최대 200 km, Kakao 응답 내 최대 30개 후보, 요청당 최대 4개 경로를 처리한다.
 - 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
@@ -46,6 +46,7 @@
 - 최대 3페이지·30개 후보 수집, 중복/반경 밖/비의도 주차장 결과 억제
 - 자연어 주차 조건과 POI 검색어 분리, 관련도·직선거리 균형 후보 구성
 - `storeParking`과 `nearbyParking`을 분리하고 주차 조건 검색 때만 PK6 영역 조회 1회 후 local spatial matching
+- Google 이름·주소·좌표 보수적 매칭과 `parkingOptions` 기반 최종 표시 후보 매장 주차 보강
 - NAVER Geocoding 및 Directions 5 `trafast` 자동차 경로 조회
 - 후보 경로 최대 4개 동시 계산, timeout/abort/부분 실패 처리
 - 교통 ETA순, 도로거리순, 검색 관련도순, ETA 80% + 거리 20% 추천순 정렬
@@ -60,7 +61,7 @@
 ## Partially Implemented Features
 
 - 지도 SDK는 NAVER Dynamic Map 활성화와 배포 도메인 등록이 필요하다. 미설정이어도 목록 비교는 계속 동작한다.
-- Kakao Local과 NAVER Maps는 매장 자체 주차 여부를 제공하지 않는다. `storeParking`은 실제 source가 생길 때까지 `unknown`이며, PK6 인근 주차장은 매장 주차로 승격하지 않는다.
+- Kakao Local과 NAVER Maps는 매장 자체 주차 여부를 제공하지 않는다. Google Places가 확실히 매칭되고 하나 이상의 `parkingOptions`가 true일 때만 `storeParking=available`이며, 그 외에는 `unknown`이다. PK6 인근 주차장은 매장 주차로 승격하지 않는다.
 - Kakao PK6는 장소 기본정보만 제공해 요금·운영시간·구획 수를 채우지 않는다. 전국주차장표준데이터 연동은 서비스 키와 운영 범위 결정이 없어 미구현이다.
 - D1/Drizzle 파일은 starter scaffold뿐이며 schema와 hosted binding이 없다.
 - `RoutingProvider`에는 미래 walking/bicycling/transit type과 matrix interface가 있지만 현재 구현은 NAVER 자동차 단건 경로뿐이다.
@@ -68,11 +69,11 @@
 
 ## Current Architecture
 
-브라우저의 React Client Components가 same-origin API routes를 호출한다. API는 Sites가 전달한 ChatGPT 사용자 header를 확인하고 입력을 검증한 뒤, 서버에서만 Kakao/NAVER API를 호출한다. 장소 후보는 직선거리로 필터링하고, 후보별 NAVER 경로 결과는 교통 ETA와 도로거리로 정렬한다. 상세 구조는 `ARCHITECTURE.md`를 참조한다.
+브라우저의 React Client Components가 same-origin API routes를 호출한다. API는 Sites가 전달한 ChatGPT 사용자 header를 확인하고 입력을 검증한 뒤, 서버에서만 Kakao/NAVER/Google API를 호출한다. 장소 후보는 직선거리로 필터링하고, 후보별 NAVER 경로 결과는 교통 ETA와 도로거리로 정렬한 다음 최종 표시 후보만 Google 매장 주차정보로 보강한다. 상세 구조는 `ARCHITECTURE.md`를 참조한다.
 
 ## Core Data Flow
 
-`주소·장소명 또는 GPS → NAVER Geocoding 후 필요 시 Kakao 장소명 fallback/복수 결과 선택 → 검색의도 분리 → Kakao 후보 검색 → 관련도·Haversine 필터/중복 제거 → (주차 조건이면 PK6 영역 조회 1회와 후보별 local matching) → 4개씩 NAVER 자동차 경로 요청 → 부분 성공 결과 → ETA/도로거리/관련도/추천 정렬 → 목록·지도·CSV`
+`주소·장소명 또는 GPS → NAVER Geocoding 후 필요 시 Kakao 장소명 fallback/복수 결과 선택 → 검색의도 분리 → Kakao 후보 검색 → 관련도·Haversine 필터/중복 제거 → (주차 조건이면 PK6 영역 조회 1회와 후보별 local matching) → 4개씩 NAVER 자동차 경로 요청 → 부분 성공 결과 → ETA/도로거리/관련도/추천 정렬 → 최종 표시 N개 Google Places 매장 주차 보강 → 목록·지도·CSV`
 
 중단 시 완료된 후보의 route path를 제거한 checkpoint만 sessionStorage에 저장하고, 재개 시 미완료 후보만 다시 조회한다.
 
@@ -82,6 +83,7 @@
 - NAVER Maps Geocoding: 주소를 좌표로 변환
 - NAVER Directions 5: 자동차 경로, 도로거리, 교통 반영 ETA
 - NAVER Maps JavaScript SDK: browser map/marker/path rendering
+- Google Places API (New): 최종 표시 후보의 매장 자체 주차 `parkingOptions` 보강
 - ChatGPT/Sites authentication headers: 사용자 식별 및 비공개 API 접근
 
 서비스가 제공하지 않는 평점·리뷰·영업 상태는 생성하지 않는다.
@@ -100,6 +102,7 @@
 - `NAVER_MAPS_CLIENT_ID`
 - `NAVER_MAPS_CLIENT_SECRET`
 - `KAKAO_REST_API_KEY`
+- `GOOGLE_PLACES_API_KEY`
 
 실제 값은 저장소에 두지 않는다. 배포에서는 Sites secret runtime entries로 관리한다. `.env.example`에는 이름만 있다.
 
@@ -121,11 +124,11 @@ node scripts/check-nearby.mjs
 npm run lint
 ```
 
-`check-nearby.mjs` 기본 모드는 mock upstream을 workerd에서 실행하며 실제 API key나 호출량을 쓰지 않는다. `--live`는 기존 Windows credential manager와 실제 Kakao/NAVER API를 사용하므로 명시적 허용이 있을 때만 실행한다.
+`check-nearby.mjs` 기본 모드는 mock upstream을 workerd에서 실행하며 실제 API key나 호출량을 쓰지 않는다. Google matching/options/failure/timeout/concurrency도 fixture로 검증한다. 실제 API는 credential과 과금 가능성이 있으므로 범위·비용에 대한 명시적 허용이 있을 때만 실행한다.
 
 ## Known Issues
 
-- 매장 자체 주차 가능·불가를 확인할 수 있는 provider가 없어 모든 후보의 매장 주차는 `확인 필요`다.
+- Google Places의 한국 매장 coverage가 불완전할 수 있어, 매칭되더라도 `parkingOptions`가 없으면 `확인 필요`다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
 - 실제 기기 GPS 권한 허용과 비로그인 브라우저의 화면 응답은 자동화 환경에서 직접 확인하지 않았다. GPS 거부 및 API 인증 차단은 regression fixture로 검증한다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.

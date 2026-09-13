@@ -10,7 +10,8 @@
 - 주소뿐 아니라 장소명 출발지와 사용자 승인 GPS 지원, 동명 장소는 사용자 선택
 - 시간순, 도로거리순, 검색 관련도순, ETA 80% + 거리 20% 추천순
 - `주차 가능한 카페` 같은 검색어에서 POI와 주차 조건 분리
-- 매장 자체 주차는 확인 불가 상태로 유지하고, 주차 조건 검색 시 Kakao PK6 인근 주차장을 별도 표시
+- 최종 표시 후보의 매장 자체 주차를 Google Places API (New) `parkingOptions`로 보강하고, 확인되지 않은 값은 `unknown` 유지
+- 주차 조건 검색 시 Kakao PK6 인근 주차장을 매장 자체 주차와 분리해 표시
 - 카드에서 전화번호, 도로거리, 직선거리, 장소 출처 비교
 - 부분 실패, 중단, 30분 내 이어하기
 - NAVER 지도 marker/route와 CSV 내보내기
@@ -22,7 +23,7 @@ Directions 5는 다중 목적지 행렬 API로 사용하지 않습니다. 직선
 
 - Node.js 22.13 이상
 - npm과 `package-lock.json`
-- runtime secret: `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET`, `KAKAO_REST_API_KEY`
+- runtime secret: `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET`, `KAKAO_REST_API_KEY`, `GOOGLE_PLACES_API_KEY`
 - 지도 화면에는 NAVER Dynamic Map 활성화와 배포 domain 등록 필요
 
 실제 secret은 repository에 저장하지 않습니다. 이름은 `.env.example`을 참고하고 배포 값은 Sites의 secret runtime entries에서 관리합니다.
@@ -50,9 +51,9 @@ node scripts/check-nearby.mjs
 npm run lint
 ```
 
-기본 주변 검색 검사는 mock Kakao/NAVER 응답을 workerd에서 사용합니다. 실제 API 검증은 credential과 사용량이 필요하므로 명시적으로 승인한 경우에만 `node scripts/check-nearby.mjs --live`를 실행합니다.
+기본 주변 검색 검사는 mock Kakao/NAVER/Google 응답을 workerd에서 사용합니다. 실제 API 검증은 credential과 사용량이 필요하므로 명시적으로 승인한 경우에만 실행합니다. Google `parkingOptions`는 Text Search Enterprise + Atmosphere 과금 필드이므로 표시 개수만큼 요청되며, 정렬 변경이나 marker 선택은 재호출하지 않습니다.
 
-2026-09-13 기준 build, typecheck, lint, mock workerd 회귀와 실제 Kakao/NAVER API smoke test를 통과했습니다. 기존 owner-only Sites 프로젝트에 배포되어 ChatGPT owner 로그인 상태에서 장소 검색, 경로, 지도, 주차 접근성, 모바일 UI를 확인했습니다. 실제 매장 주차정보는 Kakao Local/NAVER Maps에서 제공하지 않으므로 확인되지 않은 상태로 표시합니다.
+2026-09-13 기준 build, typecheck, lint, mock workerd 회귀와 실제 Kakao/NAVER API smoke test를 통과했습니다. Google 매장 주차 보강은 이름·주소·좌표가 보수적으로 일치하는 최종 표시 후보에만 적용하며, 매칭 실패·API 오류·`parkingOptions` 미제공은 주차 불가가 아니라 확인 필요로 표시합니다.
 
 ## Repository as Project Memory
 

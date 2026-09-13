@@ -2,8 +2,9 @@ import type { Point } from "@/lib/types";
 export type TravelMode = "driving" | "walking" | "bicycling" | "transit";
 export type SortMode = "time" | "distance" | "relevance" | "recommended";
 export type ParkingStatus = "available" | "unavailable" | "unknown";
-export type StoreParkingSource = "provider" | "public-data" | "user" | "unknown";
-export type StoreParking = { status: ParkingStatus; source: StoreParkingSource; description?: string };
+export type StoreParkingSource = "google-places" | "provider" | "public-data" | "user" | "unknown";
+export type StoreParkingAttribution = { provider: string; providerUri?: string };
+export type StoreParking = { status: ParkingStatus; source: StoreParkingSource; description?: string; types?: string[]; attributions?: StoreParkingAttribution[] };
 export type NearbyParking = {
   status: "found" | "unknown"; source: "kakao-local" | "public-data" | "unknown";
   name?: string; distance?: number; parkingType?: string; feeType?: string;
