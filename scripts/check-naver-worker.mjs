@@ -15,7 +15,7 @@ const { outputFiles } = await build({
     import { geocode, driving } from "./lib/naver.ts";
     export default { async fetch(request) {
       if (new URL(request.url).pathname === "/probe-redirect") {
-        try { new Request("https://maps.apigw.ntruss.com/", { redirect: "error" }); }
+        try { new Request("https://naveropenapi.apigw.ntruss.com/", { redirect: "error" }); }
         catch (error) { return Response.json({ error: error.message }); }
       }
       try {
@@ -35,7 +35,7 @@ const worker = new Miniflare({
   ...(live ? {} : { outboundService: async request => {
     upstreamCalls++;
     const url = new URL(request.url);
-    assert.equal(url.origin, "https://maps.apigw.ntruss.com");
+    assert.equal(url.origin, "https://naveropenapi.apigw.ntruss.com");
     assert.equal(request.headers.get("x-ncp-apigw-api-key-id"), "test-client");
     assert.equal(request.headers.get("x-ncp-apigw-api-key"), "test-secret");
     if (redirectResponse) return new WorkerResponse(null, { status: 302, headers: { Location: "https://never-follow.invalid/" } });

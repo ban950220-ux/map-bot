@@ -63,7 +63,7 @@ const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-0
         return WorkerResponse.json({places:[{id:`google-${index}`,displayName:{text:`테스트 매장 ${index}`,languageCode:"ko"},formattedAddress:"대한민국 테스트 도로",location:{latitude:Number(candidate.y),longitude:Number(candidate.x)},...(parkingOptions?{parkingOptions}:{}),attributions:[]}]});
       } finally { googleActive--; }
     }
-    assert.equal(url.origin,"https://maps.apigw.ntruss.com");
+    assert.equal(url.origin,"https://naveropenapi.apigw.ntruss.com");
     assert.equal(request.headers.get("x-ncp-apigw-api-key"),"fixture-secret");
     if(url.pathname.includes("geocode")) return WorkerResponse.json({addresses:["이천 SK하이닉스","롯데마트"].includes(url.searchParams.get("query"))?[]:[{x:String(originFixture.x),y:String(originFixture.y),roadAddress:originFixture.address}]});
     active++; peak=Math.max(peak,active); await new Promise(resolve=>setTimeout(resolve,20)); active--;

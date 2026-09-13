@@ -12,7 +12,7 @@ Vinext/React 화면, Cloudflare Worker API, Sites 개인 계정 인증을 사용
 
 ## 2. 사용 API
 
-- 주소 변환: NAVER Geocoding (`maps.apigw.ntruss.com/map-geocode/v2/geocode`). 실제 주소 변환 성공을 확인했습니다.
+- 주소 변환: NAVER Geocoding (`naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode`).
 - 후보 검색: Kakao Local keyword/category search. 일반 분류 카페·약국 등은 category, 상호·임의 검색어는 keyword를 사용합니다.
 - 자동차 경로: NAVER Directions 5. 새로운 주변 비교는 `trafast`, 기존 비교는 기존 기본 `traoptimal`을 유지합니다.
 - 지도 화면: NAVER Maps JavaScript SDK. 공개 Client ID만 브라우저로 전달하고 Secret과 Kakao REST 키는 서버에만 둡니다.

@@ -25,7 +25,7 @@ async function naver(path: string, params: Record<string, string>, signal?: Abor
   if (signal?.aborted) controller.abort();
   const timer = setTimeout(cancel, 18000);
   try {
-    const url = new URL(path, "https://maps.apigw.ntruss.com");
+    const url = new URL(path, "https://naveropenapi.apigw.ntruss.com");
     url.search = new URLSearchParams(params).toString();
     const response = await fetch(url, {
       headers: { "x-ncp-apigw-api-key-id": vars.NAVER_MAPS_CLIENT_ID!, "x-ncp-apigw-api-key": vars.NAVER_MAPS_CLIENT_SECRET!, Accept: "application/json" },
