@@ -34,7 +34,8 @@ async function naver(path: string, params: Record<string, string>, signal?: Abor
       redirect: "manual", signal: controller.signal,
     });
     if (response.status >= 300 && response.status < 400) throw new MapsError("NAVER Maps에서 예상하지 않은 주소 이동 응답을 받았습니다. 인증정보 보호를 위해 요청을 중단했습니다.", 502, true);
-    if (response.status === 401 || response.status === 403) throw new MapsError("NAVER 인증정보를 확인해야 합니다. 같은 Maps Application의 Client ID와 Secret인지 확인해 주세요.", 502, true);
+    if (response.status === 401) throw new MapsError("NAVER 인증에 실패했습니다. 같은 Maps Application의 Client ID와 Secret인지 확인해 주세요.", 502, true);
+    if (response.status === 403) throw new MapsError("NAVER Maps 호출 권한이 거부됐습니다. 해당 Application에서 Geocoding 또는 Directions 5 사용 권한을 확인해 주세요.", 502, true);
     if (response.status === 429) throw new MapsError("NAVER Maps 이용 한도에 도달했거나 Geocoding·Directions 5가 활성화되지 않았습니다. 잠시 뒤 다시 시도하거나 이용 설정을 확인해 주세요.", 429, true);
     if (!response.ok) throw new MapsError(`NAVER Maps 요청을 처리하지 못했습니다 (HTTP ${response.status}). 잠시 후 다시 시도해 주세요.`);
     return await response.json() as NaverResponse;
