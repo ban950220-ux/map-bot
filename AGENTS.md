@@ -2,18 +2,35 @@
 
 이 저장소가 프로젝트의 Single Source of Truth다. 이전 대화보다 현재 저장소의 코드, 설정, 테스트 결과와 아래 문서를 우선한다.
 
+## 공통 사이트 baseline
+
+이 프로젝트는 사용자-facing 사이트에 대한 공통 규칙으로 `MASTER_SITE_BASELINE.md`를 따른다.
+
+특히 PWA/installability 작업에서는 다음을 강제한다.
+
+- manifest/icon/source 존재만으로 설치 가능 판정을 내리지 않는다.
+- 실제 production HTML, manifest response, icon response, `start_url`, `scope`, 인증 redirect를 확인한다.
+- Android Chromium에서 단순 `바로가기 만들기`만 제공되면 설치형 PWA 완료로 인정하지 않는다.
+- 실제 `앱 설치` 또는 동등한 Web App 설치 흐름과 설치 후 standalone 실행이 확인되어야 `READY AS INSTALLABLE WEB APP`이라고 판정한다.
+- 실제 Android 검증이 남아 있으면 최대 판정은 `READY FOR ANDROID DEVICE VERIFICATION`이다.
+- Service Worker는 installability를 위해 무조건 추가하지 않고 필요성이 확인될 때만 최소 구현한다.
+- `beforeinstallprompt`는 지원 환경에서 활용하되 발생 여부 하나만으로 전체 PWA 성공/실패를 단정하지 않는다.
+
+프로젝트 고유 규칙과 최신 사용자 지시가 `MASTER_SITE_BASELINE.md`보다 우선한다.
+
 ## 세션 시작 절차
 
 의미 있는 작업을 시작하기 전에 다음 순서로 확인한다.
 
 1. `AGENTS.md`를 읽는다.
-2. `PROJECT_CONTEXT.md`를 읽는다.
-3. 구조나 외부 서비스 흐름을 바꿀 때 `ARCHITECTURE.md`를 읽는다.
-4. `TASKS.md`에서 현재 우선순위와 이미 알려진 문제를 확인한다.
-5. 요청과 관련된 실제 source/config/schema/tests를 확인한다.
-6. `git status --short --branch`와 현재 branch를 확인한다.
-7. 기존 uncommitted changes를 사용자 작업으로 간주하고 보호한다.
-8. 문서의 설명을 실제 구현과 비교한다.
+2. `MASTER_SITE_BASELINE.md`를 읽는다.
+3. `PROJECT_CONTEXT.md`를 읽는다.
+4. 구조나 외부 서비스 흐름을 바꿀 때 `ARCHITECTURE.md`를 읽는다.
+5. `TASKS.md`에서 현재 우선순위와 이미 알려진 문제를 확인한다.
+6. 요청과 관련된 실제 source/config/schema/tests를 확인한다.
+7. `git status --short --branch`와 현재 branch를 확인한다.
+8. 기존 uncommitted changes를 사용자 작업으로 간주하고 보호한다.
+9. 문서의 설명을 실제 구현과 비교한다.
 
 작은 문구 수정처럼 범위가 분명한 작업은 필요한 파일만 추가로 읽는다. 저장소에 `.codegraph/`가 있으면 코드 위치와 호출 경로를 찾을 때 CodeGraph를 먼저 사용한다.
 
