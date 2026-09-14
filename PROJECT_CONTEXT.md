@@ -14,7 +14,7 @@
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
 - 2026-09-13 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
-- 2026-09-14 production은 Sites secret revision 11과 version 14를 사용한다. 상태 API의 NAVER/Kakao/Google 연결 값은 모두 true지만 NAVER Geocoding이 upstream 401 Authentication Failed로 거부되어 Directions·지도·Google 주차 enrichment와 결과 카드 기반 모바일 smoke test는 현재 blocked 상태다.
+- 2026-09-14 production은 Sites secret revision 18과 version 15를 사용한다. NAVER Geocoding 인증 복구 후 `주차 가능한 카페` 검색에서 자동차 경로 15/15 성공, Dynamic Map의 후보 marker와 선택 경로선, 최종 표시 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
 - canonical Git remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
@@ -136,9 +136,8 @@ npm run lint
 
 ## Current Priorities
 
-1. Sites의 `NAVER_MAPS_CLIENT_ID`/`NAVER_MAPS_CLIENT_SECRET` 값이 같은 NAVER Maps Application의 유효한 쌍인지 확인해야 한다. 서버는 현재 공식 `naveropenapi.apigw.ntruss.com` endpoint와 필수 인증 header를 사용하며 production 응답은 명확한 HTTP 401이다.
-2. NAVER 인증 정상화 뒤 Directions, Dynamic Map, Google 주차 표본과 360/390/430px 결과 카드 smoke test를 다시 수행한다. Google runtime 연결 상태 자체는 true다.
-3. 전국주차장표준데이터와 shared cache는 필요성이 생길 때만 optional로 검토한다.
+1. Production 핵심 경로는 정상이며 현재 release blocker는 없다.
+2. 전국주차장표준데이터와 shared cache는 필요성이 생길 때만 optional로 검토한다.
 
 ## Recommended Next Tasks
 

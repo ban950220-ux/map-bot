@@ -41,11 +41,12 @@
 
 ## Production Blockers
 
-- [ ] Sites production provider 연결 재검증
-  - 최신 secret revision 11과 version 14에서 NAVER Geocoding이 upstream 401 Authentication Failed로 거부된다.
-  - 서버 REST endpoint는 현재 공식 `naveropenapi.apigw.ntruss.com`으로 수정했고 401/403 진단도 분리했다. Sites에 저장된 Client ID/Secret이 같은 Maps Application의 정확한 쌍인지 다시 확인한다.
-  - production 상태의 `connected`, `placesConnected`, `parkingConnected`는 모두 true다.
-  - 연결 정상화 후 Directions, Dynamic Map, Google 주차 표본, 360/390/430px 결과 카드 smoke test를 완료한다.
+- None.
+
+- [x] Sites production provider 연결 재검증
+  - secret revision 18과 version 15에서 NAVER Geocoding 인증이 복구되었다.
+  - `주차 가능한 카페` 검색으로 NAVER Directions 15/15 성공, Dynamic Map marker와 선택 경로선, 최종 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
+  - `connected`, `placesConnected`, `parkingConnected`가 모두 true인 owner-only production을 유지한다.
 
 ## Future / Optional
 
