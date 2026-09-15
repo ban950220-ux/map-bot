@@ -130,9 +130,3 @@ flowchart LR
 - provider가 주지 않은 rating/review/open status를 채우지 않는다.
 - secret은 server-only이고 public Client ID 외에는 client response/log/storage로 내보내지 않는다.
 - auth나 owner-only deployment 범위를 기능 편의 때문에 완화하지 않는다.
-
-## Technical Debt
-
-- Google Places의 한국 매장 `parkingOptions` coverage는 provider 데이터에 따라 달라지며, 낮은 coverage를 추정값으로 보완하지 않는다.
-- provider-wide rate limiting/backoff와 persistent/shared cache는 없다. Google Places Content는 shared cache 대상에서 제외한다.
-- 실제 기기 GPS 자동화는 없다.

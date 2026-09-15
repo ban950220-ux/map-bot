@@ -51,22 +51,25 @@ node scripts/check-nearby.mjs
 npm run lint
 ```
 
-기본 주변 검색 검사는 mock Kakao/NAVER/Google 응답을 workerd에서 사용합니다. 실제 API 검증은 credential과 사용량이 필요하므로 명시적으로 승인한 경우에만 실행합니다. Google `parkingOptions`는 Text Search Enterprise + Atmosphere 과금 필드이므로 표시 개수만큼 요청되며, 정렬 변경이나 marker 선택은 재호출하지 않습니다.
+기본 주변 검색 검사는 mock Kakao/NAVER/Google 응답을 workerd에서 사용합니다. Google `parkingOptions`는 표시 개수만큼 요청되며, 정렬 변경이나 marker 선택은 재호출하지 않습니다.
 
-2026-09-13 기준 build, typecheck, lint, mock workerd 회귀와 실제 Kakao/NAVER API smoke test를 통과했습니다. Google 매장 주차 보강은 이름·주소·좌표가 보수적으로 일치하는 최종 표시 후보에만 적용하며, 매칭 실패·API 오류·`parkingOptions` 미제공은 주차 불가가 아니라 확인 필요로 표시합니다.
+실제 provider를 확인할 때는 필요한 credential을 설정한 뒤 다음 명령을 사용합니다. 이 검사는 실제 API 사용량과 비용이 발생할 수 있습니다.
 
-## Repository as Project Memory
+```bash
+node scripts/check-nearby.mjs --live
+```
 
-- `AGENTS.md`: 모든 AI 개발 세션의 영구 작업 규칙
+최근 검증 결과와 Google 매장 주차 보강의 현재 상태는 `PROJECT_CONTEXT.md`에 기록합니다.
+
+## Project Documents
+
+- Codex 전역 `AGENTS.md`와 `%USERPROFILE%\.codex\rules\`: 모든 저장소에 공통인 작업 규칙
+- `AGENTS.md`: 이 저장소에만 적용되는 제약과 검증 항목
 - `PROJECT_CONTEXT.md`: 현재 구현·검증·문제의 snapshot
-- `ARCHITECTURE.md`: 장기 유지해야 할 구성과 데이터 흐름
-- `TASKS.md`: 우선순위와 acceptance criteria가 있는 backlog
+- `ARCHITECTURE.md`: 시스템 구성과 데이터 흐름
+- `TASKS.md`: 미완료 작업의 우선순위와 acceptance criteria
 - `IMPLEMENTATION.md`: 주변 탐색 구현의 상세 배경
 
-새 세션은 위 문서와 실제 코드를 함께 확인하고, 의미 있는 변경 후 현재 상태 문서를 갱신해야 합니다.
+## Repository
 
-## Deployment and Git
-
-`.openai/hosting.json`에는 기존 private Sites 프로젝트가 등록되어 있습니다. `project_id`와 owner-only 접근 범위를 보존합니다. 문서만 바꾼 작업은 사이트를 배포하지 않습니다.
-
-canonical remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이고 기본 개발 branch는 `main`입니다. 새 환경에서는 이 repository를 clone한 뒤 위 설치·검증 절차를 따릅니다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존하며, history를 rewrite하거나 force push하지 않습니다.
+canonical remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이고 기본 개발 branch는 `main`입니다. 새 환경에서는 이 repository를 clone한 뒤 위 설치·검증 절차를 따릅니다. 이 PC의 `legacy-origin`은 이전 local checkout을 가리킵니다. Sites project와 배포 상태는 `PROJECT_CONTEXT.md`를 참조합니다.

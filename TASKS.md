@@ -1,52 +1,6 @@
 # Tasks
 
-## Release Complete
-
-- [x] 기존 ESLint 오류를 동작 변경 없이 해결
-  - `npm run lint`가 error/warning 없이 통과한다.
-  - root 내부 navigation은 framework Link를 사용한다.
-  - checkpoint 초기화와 map SDK loading의 effect가 불필요한 동기 state cascade를 만들지 않는다.
-  - NAVER map global의 최소 타입을 정의해 explicit `any`를 제거한다.
-  - `npm run build`, `npx tsc --noEmit`, `node scripts/check-nearby.mjs`가 계속 통과한다.
-
-- [x] owner-only 환경의 핵심 browser smoke test
-  - 주소·장소명 기반 후보 검색, 주차 조건 분리와 결과 정렬을 확인한다.
-  - marker와 선택 route path가 표시되며 map 인증 실패 시 목록 기능이 유지된다.
-  - 한 후보 실패와 사용자 중단/재개가 성공 결과를 지우지 않는다.
-  - 실제 기기 GPS를 시험하지 못하면 미검증 범위를 명시한다.
-  - test 중 사용한 API source와 검증 시각을 기록하되 credential은 기록하지 않는다.
-
-  - production에서 ChatGPT owner 접근, 상태 API, 장소명 선택, Kakao 검색, NAVER 경로·지도, 주차 분리, marker/list 연동을 확인했다.
-  - 360/390/430/768/1200px에서 horizontal overflow 없이 목록이 지도보다 먼저 노출되는 것을 확인했다.
-  - 부분 실패·중단·재개와 GPS 거부는 browser에 고의 장애를 만들지 않고 regression fixture로 확인했다.
-
-- [x] 주차정보 의미 분리와 Kakao PK6 보완
-  - 매장 자체 주차는 `storeParking`, 인근 주차장은 `nearbyParking`으로 분리한다.
-  - 주차 조건 검색 때 영역 조회 1회 후 후보별 local matching을 사용한다.
-  - 직접 확인할 수 없는 매장 주차는 계속 `unknown`으로 유지한다.
-
-- [x] Google Places API (New) 매장 자체 주차 enrichment
-  - Kakao 후보와 Google 결과의 이름·주소·좌표를 보수적으로 대조한다.
-  - 최종 표시 후보에만 최대 3개 concurrency로 Text Search를 호출하며 정렬·marker 선택 때 재호출하지 않는다.
-  - `parkingOptions`의 true 항목만 `available` 근거로 사용하고, 누락·false-only·실패는 `unknown`으로 유지한다.
-  - Google `storeParking`과 Kakao PK6 `nearbyParking`을 분리하고 Google Maps attribution을 표시한다.
-
-- [x] package metadata 정리
-  - package name을 `map-bot`으로 변경하고 dependency graph는 유지했다.
-  - build/typecheck/lint/regression을 통과했다.
-
-- [x] WebMCP runtime 등록 검증
-  - 지원되는 ChatGPT in-app browser에서 `compare_nearby_places` 등록과 최신 relevance schema 노출을 확인했다.
-  - unsupported browser에서도 일반 UI가 독립적으로 동작한다.
-
-## Production Blockers
-
-- None.
-
-- [x] Sites production provider 연결 재검증
-  - secret revision 18과 version 15에서 NAVER Geocoding 인증이 복구되었다.
-  - `주차 가능한 카페` 검색으로 NAVER Directions 15/15 성공, Dynamic Map marker와 선택 경로선, 최종 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
-  - `connected`, `placesConnected`, `parkingConnected`가 모두 true인 owner-only production을 유지한다.
+이 문서는 미완료 작업과 우선순위만 관리한다. 완료된 구현과 검증 상태는 `PROJECT_CONTEXT.md`, 구조적 제약은 `ARCHITECTURE.md`를 기준으로 한다.
 
 ## Future / Optional
 
