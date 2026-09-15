@@ -2,6 +2,10 @@
 
 Codex 전역 `AGENTS.md`와 `%USERPROFILE%\.codex\rules\`를 기본 규칙으로 적용한다. 이 파일은 이 저장소에만 필요한 제약과 검증 항목을 추가한다.
 
+## 공통 사이트 baseline
+
+사용자-facing 사이트와 PWA/installability 작업에는 `MASTER_SITE_BASELINE.md`를 적용한다. 실제 production 응답과 Android 설치·standalone 실행을 확인하기 전에는 설치 가능한 Web App 검증이 끝났다고 판정하지 않는다. 프로젝트 고유 규칙과 최신 사용자 지시가 baseline보다 우선한다.
+
 ## 프로젝트 불변 조건
 
 - ChatGPT 인증을 완화하거나 우회하지 않는다.
