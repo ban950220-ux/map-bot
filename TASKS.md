@@ -2,6 +2,14 @@
 
 이 문서는 미완료 작업과 우선순위만 관리한다. 완료된 구현과 검증 상태는 `PROJECT_CONTEXT.md`, 구조적 제약은 `ARCHITECTURE.md`를 기준으로 한다.
 
+## Release Gate
+
+- [ ] 내부 링크·PWA 변경을 기존 Sites project에 배포하고 production 검증
+  - 기존 `project_id`, owner-only 접근, production URL을 유지한다.
+  - 개인정보·이용조건 링크의 클릭 이동과 Vinext RSC prefetch 오류 해소를 확인한다.
+  - production HTML의 manifest 링크, manifest·192/512/maskable 아이콘의 200 응답·MIME·실제 규격을 확인한다.
+  - 실제 Android Chromium에서 앱 설치 항목, 전용 아이콘, standalone 실행, 인증과 핵심 화면을 확인하기 전에는 설치형 Web App 완료로 판정하지 않는다.
+
 ## Future / Optional
 
 - [ ] 전국주차장표준데이터 optional integration 검토

@@ -15,6 +15,7 @@
 - 카드에서 전화번호, 도로거리, 직선거리, 장소 출처 비교
 - 부분 실패, 중단, 30분 내 이어하기
 - NAVER 지도 marker/route와 CSV 내보내기
+- 프로젝트 전용 manifest와 192/512/maskable 아이콘을 사용하는 설치형 Web App 기반
 - Sites/ChatGPT 사용자 header를 확인하는 개인용 API
 
 Directions 5는 다중 목적지 행렬 API로 사용하지 않습니다. 직선거리는 후보 필터에만 쓰고 최종 비교에는 자동차 경로의 도로거리와 ETA를 사용합니다.
@@ -60,6 +61,8 @@ node scripts/check-nearby.mjs --live
 ```
 
 최근 검증 결과와 Google 매장 주차 보강의 현재 상태는 `PROJECT_CONTEXT.md`에 기록합니다.
+
+Web App manifest와 아이콘은 production 응답과 실제 Android 설치·standalone 실행까지 확인해야 완료입니다. installability만을 위한 service worker나 가짜 설치 prompt는 사용하지 않습니다.
 
 ## Project Documents
 
