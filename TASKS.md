@@ -4,12 +4,6 @@
 
 ## Release Gate
 
-- [ ] `main`의 precise-location 기본값 제거를 기존 owner-only Sites project에 배포하고 검증
-  - 현재 source에서는 주변 탐색과 legacy UI의 출발지 기본값을 비우고 live smoke·NAVER 진단은 공개 장소 fixture를 사용한다.
-  - production Site source version 17은 이 privacy cleanup 이전이므로 재배포 후 입력창이 빈 값에서 시작하는지 확인한다.
-  - owner-only 인증, 장소 검색, 경로 비교, 현재 위치 사용 흐름에 회귀가 없는지 확인한다.
-  - public Git history 정리나 repository visibility 변경은 별도 결정으로 분리하고 자동 force-push하지 않는다.
-
 - [ ] 내부 링크·PWA 변경을 기존 Sites project에 배포하고 production 검증
   - [x] 기존 `project_id`, owner-only 접근, production URL을 유지해 version 17로 배포했다.
   - [x] 인증된 production에서 개인정보 링크의 클릭 이동과 Vinext RSC prefetch 오류 해소를 확인했다.

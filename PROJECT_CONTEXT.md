@@ -17,9 +17,9 @@
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
 - 2026-09-18 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
 - GitHub Actions `Offline CI`는 Node 22 clean install, build, TypeScript, mock 지도 회귀, lint를 자동 실행하며 2026-09-18 첫 run #1이 성공했다.
-- 2026-09-18 production version 17에는 Vinext RSC prefetch 오류를 피하는 native 내부 링크와 `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 배포되어 있다. owner-only 인증이 필요한 manifest를 브라우저가 credential과 함께 요청하도록 `crossorigin="use-credentials"`를 적용했다.
+- 2026-09-18 production version 18에는 Vinext RSC prefetch 오류를 피하는 native 내부 링크, precise-location 기본값을 제거한 빈 출발지 UI, `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 배포되어 있다. owner-only 인증이 필요한 manifest를 브라우저가 credential과 함께 요청하도록 `crossorigin="use-credentials"`를 적용했다.
 - 2026-09-14 production은 Sites secret revision 18과 version 15를 사용한다. NAVER Geocoding 인증 복구 후 `주차 가능한 카페` 검색에서 자동차 경로 15/15 성공, Dynamic Map의 후보 marker와 선택 경로선, 최종 표시 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
-- 2026-09-18 owner-only production 읽기 전용 smoke test에서 인증된 검색 화면과 provider 연결 상태, WebMCP 도구 등록, 개인정보 링크의 실제 클릭 이동, manifest 링크와 `use-credentials` 속성을 확인했다. 비인증 `/`, `/api/status`, manifest·아이콘 요청은 모두 401로 인증 경계를 유지한다.
+- 2026-09-18 owner-only production 읽기 전용 smoke test에서 인증된 검색 화면과 provider 연결 상태, WebMCP 도구 등록, 개인정보 링크의 실제 클릭 이동, manifest 링크와 `use-credentials` 속성을 확인했다. version 18 배포 후 인증된 `/`와 manifest·192/512/maskable 아이콘은 모두 200이고 제거한 개인 출발지가 HTML에 없으며, 비인증 `/`와 manifest 요청은 401로 인증 경계를 유지한다.
 - owner-only browser smoke test에서 360/390/430/768/1200px의 horizontal overflow가 없고 목록이 지도보다 먼저 노출되는 것을 확인했다. 부분 실패·중단·재개와 GPS 거부는 regression fixture로 확인했으며 실제 기기 GPS는 아직 미검증이다.
 - 지원되는 ChatGPT in-app browser에서 WebMCP 도구 등록과 relevance schema 노출을 확인했다. 도구의 전체 end-to-end 실행 검증은 남아 있다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
@@ -78,7 +78,6 @@
 
 ## Known Issues
 
-- 현재 production Site source version 17은 precise-location 기본값 제거 commit 이전 소스다. owner-only 접근은 유지되지만, Git `main`의 privacy cleanup을 production에 다시 배포하고 빈 출발지로 시작하는지 확인하기 전에는 운영 반영 완료로 판정하지 않는다.
 - GitHub repository visibility가 현재 `public`으로 확인되지만 기존 프로젝트 문서는 `private`을 전제로 했다. 과거 Git history에는 현재 source에서 제거된 개인 기본값이 남아 있을 수 있으며, history rewrite/force push 또는 repository visibility 변경은 별도 명시적 결정 없이는 수행하지 않는다. 코드상 secret은 server-only 경계를 유지하되, source repository 공개범위 자체는 별도 명시적 결정 없이 변경하지 않는다.
 - Google Places의 한국 매장 coverage가 불완전할 수 있어, 매칭되더라도 `parkingOptions`가 없으면 `확인 필요`다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
