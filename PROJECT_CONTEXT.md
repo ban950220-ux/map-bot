@@ -15,14 +15,14 @@
 - 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
-- 2026-09-15 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
-- 2026-09-17 로컬 코드에는 production의 Vinext RSC prefetch 오류를 피하는 native 내부 링크와 `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 구현되어 있다. build, TypeScript, ESLint, mock workerd, manifest·아이콘 응답과 로컬 링크 이동 검증을 통과했으며 production 배포는 아직 하지 않았다.
+- 2026-09-18 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
+- 2026-09-18 production version 17에는 Vinext RSC prefetch 오류를 피하는 native 내부 링크와 `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 배포되어 있다. owner-only 인증이 필요한 manifest를 브라우저가 credential과 함께 요청하도록 `crossorigin="use-credentials"`를 적용했다.
 - 2026-09-14 production은 Sites secret revision 18과 version 15를 사용한다. NAVER Geocoding 인증 복구 후 `주차 가능한 카페` 검색에서 자동차 경로 15/15 성공, Dynamic Map의 후보 marker와 선택 경로선, 최종 표시 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
-- 2026-09-17 owner-only production 읽기 전용 smoke test에서 인증된 화면과 개인정보·이용조건 직접 URL은 열렸고 비인증 `/`와 `/api/status`는 401이었다. 현재 production의 `next/link` 클릭은 Vinext RSC prefetch 오류로 이동하지 않으며 manifest 링크도 없다. 로컬 수정 배포 후 production 재검증이 필요하다.
+- 2026-09-18 owner-only production 읽기 전용 smoke test에서 인증된 검색 화면과 provider 연결 상태, WebMCP 도구 등록, 개인정보 링크의 실제 클릭 이동, manifest 링크와 `use-credentials` 속성을 확인했다. 비인증 `/`, `/api/status`, manifest·아이콘 요청은 모두 401로 인증 경계를 유지한다.
 - owner-only browser smoke test에서 360/390/430/768/1200px의 horizontal overflow가 없고 목록이 지도보다 먼저 노출되는 것을 확인했다. 부분 실패·중단·재개와 GPS 거부는 regression fixture로 확인했으며 실제 기기 GPS는 아직 미검증이다.
 - 지원되는 ChatGPT in-app browser에서 WebMCP 도구 등록과 relevance schema 노출을 확인했다. 도구의 전체 end-to-end 실행 검증은 남아 있다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
-- 핵심 지도 검색의 알려진 production blocker는 없지만, 사이트 baseline 완료를 위해 내부 링크 수정과 PWA asset을 기존 Sites project에 배포하고 production·Android 설치를 검증해야 한다.
+- 핵심 지도 검색의 알려진 production blocker는 없다. 사이트 baseline 완료를 위해 실제 Android Chromium에서 manifest·아이콘 로드, 앱 설치 항목, 전용 아이콘, standalone 실행과 인증 후 핵심 화면을 검증해야 한다.
 - canonical Git remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
 ## Tech Stack

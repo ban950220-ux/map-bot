@@ -5,9 +5,10 @@
 ## Release Gate
 
 - [ ] 내부 링크·PWA 변경을 기존 Sites project에 배포하고 production 검증
-  - 기존 `project_id`, owner-only 접근, production URL을 유지한다.
-  - 개인정보·이용조건 링크의 클릭 이동과 Vinext RSC prefetch 오류 해소를 확인한다.
-  - production HTML의 manifest 링크, manifest·192/512/maskable 아이콘의 200 응답·MIME·실제 규격을 확인한다.
+  - [x] 기존 `project_id`, owner-only 접근, production URL을 유지해 version 17로 배포했다.
+  - [x] 인증된 production에서 개인정보 링크의 클릭 이동과 Vinext RSC prefetch 오류 해소를 확인했다.
+  - [x] production HTML의 manifest 링크와 `crossorigin="use-credentials"`를 확인했다. 비인증 manifest·아이콘 요청은 owner-only 경계에 따라 401이다.
+  - [ ] 인증된 Android Chromium에서 manifest·192/512/maskable 아이콘의 실제 로드와 규격을 확인한다.
   - 실제 Android Chromium에서 앱 설치 항목, 전용 아이콘, standalone 실행, 인증과 핵심 화면을 확인하기 전에는 설치형 Web App 완료로 판정하지 않는다.
 
 ## Future / Optional
