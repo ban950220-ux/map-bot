@@ -39,7 +39,7 @@ function loadCheckpoint(): NearbyCheckpoint | null {
   } catch { sessionStorage.removeItem(CHECKPOINT_KEY); return null; }
 }
 export default function NearbyExplorer() {
-  const [address, setAddress] = useState("경기도 이천시 대산로247번길 50");
+  const [address, setAddress] = useState("");
   const [location, setLocation] = useState<(Point & { accuracy?: number })>();
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState("양꼬치");
