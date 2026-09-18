@@ -11,7 +11,6 @@ import stores from "@/lib/stores.json";
 import { formatDuration, type CompareResponse, type Point, type RouteFailure, type RouteResult } from "@/lib/types";
 import { registerRouteTool } from "@/lib/webmcp";
 
-const HOME = "경기도 이천시 대산로247번길 50";
 type Query = { origin: string; mode: "stores" | "direct"; destination?: string };
 type Report = { origin: Point; mode: "stores" | "direct"; startedAt: string; completed: boolean };
 const clock = (value: string) => new Date(value).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -25,7 +24,7 @@ async function post<T>(path: string, body: unknown, signal: AbortSignal): Promis
 }
 
 export default function LegacyRoutes() {
-  const [origin, setOrigin] = useState(HOME);
+  const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [mode, setMode] = useState<"stores" | "direct">("stores");
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -121,7 +120,7 @@ export default function LegacyRoutes() {
           <fieldset disabled={busy}>
             <label htmlFor="origin">출발지 주소</label>
             <div className="input-wrap"><MapPin size={18}/><Input id="origin" value={origin} onChange={e => setOrigin(e.target.value)} placeholder="도로명 또는 지번 주소" required minLength={3} maxLength={200}/></div>
-            <div className="origin-note"><span>기본 출발지 · 이천 지엠하이빌</span><button type="button" onClick={() => setOrigin(HOME)}>기본값</button></div>
+            <p className="origin-note">검색을 시작하려면 출발지를 입력해 주세요.</p>
             <Tabs value={mode} onValueChange={value => setMode(value as "stores" | "direct")}>
               <TabsList className="mode-tabs"><TabsTrigger value="stores" disabled={busy}><Utensils size={16}/>양꼬치집 비교</TabsTrigger><TabsTrigger value="direct" disabled={busy}><MapPin size={16}/>직접 입력</TabsTrigger></TabsList>
               <TabsContent value="stores"><div className="store-summary"><span>저장된 매장 전체</span><strong>{stores.length}<span>곳</span></strong><p>이가네양꼬치 43곳 · 램미가 13곳</p></div><p className="catalog-note">매장 목록 · 2026.08.17 기준<br/>각 매장의 소요시간은 지금 새로 조회합니다.</p></TabsContent>

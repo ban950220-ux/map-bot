@@ -6,8 +6,9 @@ import { Miniflare, Response as WorkerResponse } from "miniflare";
 // Run the real API client inside workerd, not Node's different fetch runtime.
 // --live reads existing Windows credentials into memory only; never prints them.
 const live = process.argv.includes("--live");
+const python = process.env.MAP_CREDENTIAL_PYTHON || process.env.PYTHON || "python";
 const bindings = live
-  ? JSON.parse(execFileSync("C:/Users/ban357/AppData/Local/Python/pythoncore-3.14-64/python.exe", ["-c", "import json,keyring; print(json.dumps({'NAVER_MAPS_CLIENT_ID':keyring.get_password('naver_maps','client_id'),'NAVER_MAPS_CLIENT_SECRET':keyring.get_password('naver_maps','client_secret')}))"], { encoding: "utf8" }))
+  ? JSON.parse(execFileSync(python, ["-c", "import json,keyring; print(json.dumps({'NAVER_MAPS_CLIENT_ID':keyring.get_password('naver_maps','client_id'),'NAVER_MAPS_CLIENT_SECRET':keyring.get_password('naver_maps','client_secret')}))"], { encoding: "utf8" }))
   : { NAVER_MAPS_CLIENT_ID: "test-client", NAVER_MAPS_CLIENT_SECRET: "test-secret" };
 assert.ok(bindings.NAVER_MAPS_CLIENT_ID && bindings.NAVER_MAPS_CLIENT_SECRET, "Credentials are missing");
 const { outputFiles } = await build({
@@ -19,7 +20,7 @@ const { outputFiles } = await build({
         catch (error) { return Response.json({ error: error.message }); }
       }
       try {
-        const origin = await geocode("경기도 이천시 대산로247번길 50");
+        const origin = await geocode("서울특별시 중구 세종대로 110");
         if (new URL(request.url).pathname === "/geocode") return Response.json(origin);
         const destination = await geocode("경기도 수원시 영통구 청명남로 25");
         return Response.json(await driving(origin, destination, { id: 0, name: "test", brand: "test", address: destination.address }));

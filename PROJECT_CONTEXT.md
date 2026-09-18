@@ -24,7 +24,7 @@
 - 지원되는 ChatGPT in-app browser에서 WebMCP 도구 등록과 relevance schema 노출을 확인했다. 도구의 전체 end-to-end 실행 검증은 남아 있다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
 - 핵심 지도 검색의 알려진 production blocker는 없다. 사이트 baseline 완료를 위해 실제 Android Chromium에서 manifest·아이콘 로드, 앱 설치 항목, 전용 아이콘, standalone 실행과 인증 후 핵심 화면을 검증해야 한다.
-- canonical Git remote는 `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 2026-09-18 GitHub 연결 메타데이터는 repository visibility를 `public`으로 반환하므로, owner-only Sites 접근과 source repository 공개범위를 동일한 것으로 간주하지 않는다. 현재 `main`에서는 개인 precise-location 기본값을 UI source와 live smoke fixture에서 제거했으며 UI 출발지는 빈 값에서 시작한다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
+- canonical Git remote는 `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 2026-09-18 GitHub 연결 메타데이터는 repository visibility를 `public`으로 반환하므로, owner-only Sites 접근과 source repository 공개범위를 동일한 것으로 간주하지 않는다. 현재 source에서는 개인 precise-location 기본값을 주변 탐색·legacy UI와 live 진단 fixture에서 제거했으며 UI 출발지는 빈 값에서 시작한다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
 ## Tech Stack
 
