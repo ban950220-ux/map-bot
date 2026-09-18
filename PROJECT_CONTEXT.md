@@ -73,13 +73,12 @@
 - D1/Drizzle 파일은 starter scaffold뿐이며 schema와 hosted binding이 없다.
 - `RoutingProvider`에는 미래 walking/bicycling/transit type과 matrix interface가 있지만 현재 구현은 NAVER 자동차 단건 경로뿐이다.
 - WebMCP는 코드에 등록되어 있으나 지원 브라우저에서 end-to-end 검증되지 않았다.
-- 설치형 Web App용 manifest와 아이콘은 로컬 구현 상태다. production 응답과 Android 설치·standalone 실행을 확인하기 전에는 완료로 판정하지 않는다.
+- 설치형 Web App용 manifest와 192/512/maskable 아이콘은 production version 17에 배포됐고 인증된 HTML의 credentialed manifest 연결까지 확인했다. 실제 Android Chromium의 아이콘 로드·앱 설치·standalone 실행·인증 흐름 검증은 남아 있어 그 전에는 설치 완료로 판정하지 않는다.
 
 ## Known Issues
 
 - Google Places의 한국 매장 coverage가 불완전할 수 있어, 매칭되더라도 `parkingOptions`가 없으면 `확인 필요`다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
 - 실제 기기 GPS 권한 허용과 비로그인 브라우저의 화면 응답은 자동화 환경에서 직접 확인하지 않았다. GPS 거부 및 API 인증 차단은 regression fixture로 검증한다.
-- 현재 production의 개인정보·이용조건 `next/link`는 Vinext RSC prefetch 오류 때문에 클릭 이동이 실패한다. 직접 URL은 정상이며 로컬 코드는 native navigation으로 수정되어 배포를 기다린다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
 - 200 km 검색도 Kakao가 반환한 최대 45개 POI 중 필터된 최대 30개만 비교하므로 전역 최적을 보장하지 않는다.
