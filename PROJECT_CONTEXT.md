@@ -16,6 +16,7 @@
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
 - 2026-09-18 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
+- GitHub Actions `Offline CI`는 Node 22 clean install, build, TypeScript, mock 지도 회귀, lint를 자동 실행하며 2026-09-18 첫 run #1이 성공했다.
 - 2026-09-18 production version 17에는 Vinext RSC prefetch 오류를 피하는 native 내부 링크와 `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 배포되어 있다. owner-only 인증이 필요한 manifest를 브라우저가 credential과 함께 요청하도록 `crossorigin="use-credentials"`를 적용했다.
 - 2026-09-14 production은 Sites secret revision 18과 version 15를 사용한다. NAVER Geocoding 인증 복구 후 `주차 가능한 카페` 검색에서 자동차 경로 15/15 성공, Dynamic Map의 후보 marker와 선택 경로선, 최종 표시 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
 - 2026-09-18 owner-only production 읽기 전용 smoke test에서 인증된 검색 화면과 provider 연결 상태, WebMCP 도구 등록, 개인정보 링크의 실제 클릭 이동, manifest 링크와 `use-credentials` 속성을 확인했다. 비인증 `/`, `/api/status`, manifest·아이콘 요청은 모두 401로 인증 경계를 유지한다.
