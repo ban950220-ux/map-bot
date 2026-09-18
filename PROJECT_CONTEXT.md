@@ -23,7 +23,7 @@
 - 지원되는 ChatGPT in-app browser에서 WebMCP 도구 등록과 relevance schema 노출을 확인했다. 도구의 전체 end-to-end 실행 검증은 남아 있다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
 - 핵심 지도 검색의 알려진 production blocker는 없다. 사이트 baseline 완료를 위해 실제 Android Chromium에서 manifest·아이콘 로드, 앱 설치 항목, 전용 아이콘, standalone 실행과 인증 후 핵심 화면을 검증해야 한다.
-- canonical Git remote는 `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 2026-09-18 GitHub 연결 메타데이터는 repository visibility를 `public`으로 반환하므로, owner-only Sites 접근과 source repository 공개범위를 동일한 것으로 간주하지 않는다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
+- canonical Git remote는 `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 2026-09-18 GitHub 연결 메타데이터는 repository visibility를 `public`으로 반환하므로, owner-only Sites 접근과 source repository 공개범위를 동일한 것으로 간주하지 않는다. 현재 `main`에서는 개인 precise-location 기본값을 UI source와 live smoke fixture에서 제거했으며 UI 출발지는 빈 값에서 시작한다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
 ## Tech Stack
 
@@ -77,7 +77,8 @@
 
 ## Known Issues
 
-- GitHub repository visibility가 현재 `public`으로 확인되지만 기존 프로젝트 문서는 `private`을 전제로 했다. 코드상 secret은 server-only 경계를 유지하되, source repository 공개범위 자체는 별도 명시적 결정 없이 변경하지 않는다.
+- 현재 production Site source version 17은 precise-location 기본값 제거 commit 이전 소스다. owner-only 접근은 유지되지만, Git `main`의 privacy cleanup을 production에 다시 배포하고 빈 출발지로 시작하는지 확인하기 전에는 운영 반영 완료로 판정하지 않는다.
+- GitHub repository visibility가 현재 `public`으로 확인되지만 기존 프로젝트 문서는 `private`을 전제로 했다. 과거 Git history에는 현재 source에서 제거된 개인 기본값이 남아 있을 수 있으며, history rewrite/force push 또는 repository visibility 변경은 별도 명시적 결정 없이는 수행하지 않는다. 코드상 secret은 server-only 경계를 유지하되, source repository 공개범위 자체는 별도 명시적 결정 없이 변경하지 않는다.
 - Google Places의 한국 매장 coverage가 불완전할 수 있어, 매칭되더라도 `parkingOptions`가 없으면 `확인 필요`다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
 - 실제 기기 GPS 권한 허용과 비로그인 브라우저의 화면 응답은 자동화 환경에서 직접 확인하지 않았다. GPS 거부 및 API 인증 차단은 regression fixture로 검증한다.
