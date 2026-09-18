@@ -80,7 +80,7 @@ async function invoke(input) {
   assert.equal(response.status,200,data.error||"Worker request failed"); return data;
 }
 try {
-  const origin=live ? await invoke({action:"geocode",address:"경기도 이천시 대산로247번길 50"}) : originFixture;
+  const origin=live ? await invoke({action:"geocode",address:"서울특별시 중구 세종대로 110"}) : originFixture;
   if(!live) {
     const placeOrigin=await invoke({action:"geocode",address:"이천 SK하이닉스"});
     assert.match(placeOrigin.address,/SK하이닉스/);
