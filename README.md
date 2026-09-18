@@ -62,7 +62,7 @@ node scripts/check-nearby.mjs --live
 
 최근 검증 결과와 Google 매장 주차 보강의 현재 상태는 `PROJECT_CONTEXT.md`에 기록합니다.
 
-Web App manifest와 아이콘은 production 응답과 실제 Android 설치·standalone 실행까지 확인해야 완료입니다. installability만을 위한 service worker나 가짜 설치 prompt는 사용하지 않습니다.
+Web App manifest와 192/512/maskable 아이콘, credentialed manifest 연결은 production에서 확인됐다. 실제 Android Chromium의 아이콘 로드·앱 설치·standalone 실행·인증 흐름까지 확인해야 최종 완료입니다. installability만을 위한 service worker나 가짜 설치 prompt는 사용하지 않습니다.
 
 ## Project Documents
 
@@ -75,4 +75,4 @@ Web App manifest와 아이콘은 production 응답과 실제 Android 설치·sta
 
 ## Repository
 
-canonical remote는 private GitHub repository `https://github.com/ban950220-ux/map-bot.git`이고 기본 개발 branch는 `main`입니다. 새 환경에서는 이 repository를 clone한 뒤 위 설치·검증 절차를 따릅니다. 이 PC의 `legacy-origin`은 이전 local checkout을 가리킵니다. Sites project와 배포 상태는 `PROJECT_CONTEXT.md`를 참조합니다.
+canonical remote는 `https://github.com/ban950220-ux/map-bot.git`이고 기본 개발 branch는 `main`입니다. 2026-09-18 GitHub 연결 메타데이터는 현재 repository visibility를 `public`으로 반환합니다. 이는 owner-only Sites 접근과 별개이며, 공개범위 자체는 명시적 결정 없이 변경하지 않습니다. 새 환경에서는 이 repository를 clone한 뒤 위 설치·검증 절차를 따릅니다. 이 PC의 `legacy-origin`은 이전 local checkout을 가리킵니다. Sites project와 배포 상태는 `PROJECT_CONTEXT.md`를 참조합니다.
