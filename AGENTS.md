@@ -17,6 +17,7 @@ Codex 전역 `AGENTS.md`와 `%USERPROFILE%\.codex\rules\`를 기본 규칙으로
 - 현재 `TtlCache`는 Worker isolate-local best-effort cache다. 영속 저장소나 전역 rate limiter로 취급하지 않는다.
 - 서버 전용 Kakao/NAVER/Google credential은 client response, log, browser storage에 노출하지 않는다. 브라우저에는 NAVER Maps JavaScript SDK용 public Client ID만 전달할 수 있다.
 - 실제 DB 필요성이 확인되기 전에는 starter D1/Drizzle scaffold에 schema, migration, hosted binding을 추가하지 않는다.
+- tracked source, test fixture, 문서에 사용자의 정확한 자택·개인 출발지 같은 precise location을 기본값으로 하드코딩하지 않는다. UI 기본값은 비워 두고, 테스트에는 synthetic fixture나 공개 장소를 사용한다.
 
 ## 프로젝트 검증 명령
 
