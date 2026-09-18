@@ -56,6 +56,8 @@ npm run lint
 
 실제 provider를 확인할 때는 필요한 credential을 설정한 뒤 다음 명령을 사용합니다. 이 검사는 실제 API 사용량과 비용이 발생할 수 있습니다.
 
+로컬 Windows keyring helper는 `MAP_CREDENTIAL_PYTHON`(또는 `PYTHON`)에 지정된 Python을 우선 사용하고, 없으면 `python`을 사용합니다. 선택한 Python 환경에는 `keyring`이 설치되어 있어야 하며 실제 credential 값은 파일이나 로그에 기록하지 않습니다.
+
 ```bash
 node scripts/check-nearby.mjs --live
 ```
