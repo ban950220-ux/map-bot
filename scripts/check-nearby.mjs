@@ -68,7 +68,7 @@ const worker = new Miniflare({ modules: true, script, compatibilityDate: "2026-0
     if(url.pathname.includes("geocode")) return WorkerResponse.json({addresses:["이천 SK하이닉스","롯데마트"].includes(url.searchParams.get("query"))?[]:[{x:String(originFixture.x),y:String(originFixture.y),roadAddress:originFixture.address}]});
     active++; peak=Math.max(peak,active); await new Promise(resolve=>setTimeout(resolve,20)); active--;
     const id=Math.round((Number(url.searchParams.get("goal").split(",")[0])-127.4)*1000);
-    if(quota) return WorkerResponse.json({error:"fixture quota"},{status:429});
+    if(quota) return WorkerResponse.json({error:{errorCode:"410",message:"fixture throttle"}},{status:429});
     if(id===failureId) return WorkerResponse.json({error:"fixture failure"},{status:500});
     const option=url.searchParams.get("option");
     assert.ok(["traoptimal","trafast"].includes(option));
@@ -140,21 +140,13 @@ try {
     googleDelay=30; const timedOutGoogle=await invoke({action:"parking",candidates:[time.ranked[0]],timeoutMs:5}); googleDelay=0;
     assert.equal(timedOutGoogle.failed,1); assert.equal(timedOutGoogle.enrichments[0].storeParking.status,"unknown");
     assert.ok(googlePeak<=3); assert.equal(googleCalls,6); assert.equal(helpers.parkingEnrichmentSchema.safeParse({candidates:time.ranked.slice(0,15).map(({id,name,address,latitude,longitude})=>({id,name,address,latitude,longitude}))}).success,true);
-    let parkingPosts=0;
     const clientResult=await helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"주차 가능한 카페",radius:5000,count:3,expand:false,sort:"distance"},new AbortController().signal,()=>{},async(path,body)=>{
       if(path==="/api/places") return parkingIntent;
       if(path==="/api/nearby-routes") return {candidates:body.candidates.map((p,index)=>({...p,drivingDistance:(Number(p.id.split(":")[1])+index)*100,drivingDuration:60000+index}))};
-      parkingPosts++; assert.equal(path,"/api/store-parking"); assert.equal(body.candidates.length,3);
-      return {enrichments:body.candidates.map((p,index)=>({id:p.id,storeParking:index===0?{status:"available",source:"google-places",types:["무료 주차장"]}:{status:"unknown",source:"unknown"}})),warnings:[]};
+      assert.fail(`Unexpected client request: ${path}`);
     });
-    assert.equal(parkingPosts,1,"Google enrichment must run once for the displayed candidates"); assert.equal(clientResult.completed,true); assert.equal(clientResult.candidates.filter(p=>p.storeParking.status==="available").length,1);
-    const degraded=await helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"카페",radius:5000,count:3,expand:false},new AbortController().signal,()=>{},async(path,body)=>{
-      if(path==="/api/places") return parkingIntent;
-      if(path==="/api/nearby-routes") return {candidates:body.candidates.map((p,index)=>({...p,drivingDistance:1000+index,drivingDuration:60000+index}))};
-      throw new Error("fixture Google failure");
-    });
-    assert.equal(degraded.completed,true); assert.equal(degraded.candidates.length,parkingIntent.candidates.length); assert.ok(degraded.search.warnings.some(w=>/주차정보/.test(w)));
-    console.log("PASS: conservative Google matching, parking options, unknown fallback, failure/timeout degradation, PK6 distinction and concurrency <=3");
+    assert.equal(clientResult.completed,true); assert.ok(clientResult.candidates.every(p=>p.storeParking.status==="unknown"),"Active comparison must not mix Google Places content with the NAVER map");
+    console.log("PASS: conservative Google matching fixtures, unknown fallback, PK6 distinction, no active-flow Google enrichment and concurrency <=3");
   }
   const parkingLots=await invoke({action:"search",origin,query:"주차장",radius:5000,count:5,expand:false});
   assert.ok(parkingLots.candidates.some(p=>/주차장$/.test(p.name)),"PK6 parking lot search must not be filtered out");
@@ -186,6 +178,15 @@ try {
     assert.equal(helpers.rankCandidates(sortFixture,"distance")[0].id,"kakao:902");
     assert.equal(helpers.rankCandidates(sortFixture,"relevance")[0].id,"kakao:902");
     assert.equal(helpers.rankCandidates(sortFixture,"recommended")[0].id,"kakao:901");
+    const brandFixture=[
+      {...time.search.candidates[0],id:"kakao:brand",name:"스타벅스 테스트점",latitude:origin.y+.01,longitude:origin.x+.01,relevanceRank:10},
+      {...time.search.candidates[0],id:"kakao:generic",name:"가까운 일반 카페",latitude:origin.y+.0001,longitude:origin.x+.0001,relevanceRank:0},
+    ];
+    assert.equal(helpers.filterCandidates(brandFixture,origin,5000,5,"balanced","스타벅스")[0].id,"kakao:brand","A direct keyword name match must survive candidate selection before a generic nearby result");
+    const brandPool=helpers.preferKeywordNameMatches(helpers.filterCandidates(brandFixture,origin,5000,5,"balanced","스타벅스"),"스타벅스");
+    assert.deepEqual(brandPool.map(p=>p.id),["kakao:brand"],"A direct brand match must exclude generic category results from the final route ranking pool");
+    assert.equal(helpers.rankCandidates(brandPool.map(p=>({...p,route:{durationMs:180000,distanceM:3000,toll:0,checkedAt:new Date().toISOString(),trafficAware:true,path:[]},trafficDuration:180000,drivingDuration:180000,drivingDistance:3000})),"time")[0].id,"kakao:brand");
+    assert.equal(helpers.filterCandidates(brandFixture,origin,5000,5,"distance","카페")[0].id,"kakao:generic","Category selection must remain distance based");
     // A different origin avoids previous successful cache entries for fault injection.
     failureId=3;
     const batch=await invoke({action:"routes",origin:{...origin,x:origin.x+.00001},candidates:time.search.candidates.slice(0,5)});
@@ -193,7 +194,9 @@ try {
     assert.ok(peak<=4); console.log("PASS: test 4 single failure preserves four routes; concurrency <=4");
     quota=true;
     const limited=await invoke({action:"routes",origin:{...origin,x:origin.x+.00002},candidates:time.search.candidates.slice(0,7)});
-    assert.ok(limited.some(p=>p.routeErrorFatal)); assert.equal(limited.filter(p=>!p.routeError).length,0); quota=false;
+    assert.ok(limited.some(p=>p.routeErrorFatal)); assert.ok(limited.some(p=>/호출 속도 제한/.test(p.routeError))); assert.equal(limited.filter(p=>!p.routeError).length,0);
+    const fatalSnapshot={requestIdentity:"fixture",origin,search:time.search,query:"양꼬치",candidates:limited,completed:false};
+    assert.equal(helpers.hasFatalRouteError(fatalSnapshot),true); assert.equal(helpers.successfulRouteCount(fatalSnapshot),0); quota=false;
     const before=callCount; const cached=await invoke({action:"search",origin,query:"양꼬치",radius:5000,count:5,expand:true});
     assert.equal(cached.cached,true); assert.equal(callCount,before);
     const empty=await invoke({action:"search",origin,query:"no-results",radius:1000,count:5,expand:true}); assert.equal(empty.candidates.length,0);
@@ -202,18 +205,18 @@ try {
     assert.equal(helpers.routesSchema.safeParse({origin,candidates:time.search.candidates.slice(0,5)}).success,false);
     let now=0; const ttl=new helpers.TtlCache(45,2,()=>now); ttl.set("a",{value:1}); now=46; assert.equal(ttl.get("a"),undefined);
     const controller=new AbortController(); let posted=0,last;
-    await assert.rejects(()=>helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"양꼬치",radius:5000,count:5,expand:true},controller.signal,p=>{last=p;if(p.done===4)controller.abort();},async(path,body)=>{
+    await assert.rejects(()=>helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"양꼬치",radius:5000,count:5,expand:true},controller.signal,p=>{last=p;if(p.snapshot?.candidates.length===4)controller.abort();},async(path,body)=>{
       posted++; assert.deepEqual(Object.keys(body.origin).sort(),["address","x","y"]);
       if(path==="/api/places")return time.search;
-      return {candidates:body.candidates.map(p=>({...p,drivingDistance:10,drivingDuration:20}))};
+      return {candidates:body.candidates.map((p,index)=>index===0?{...p,routeError:"fixture transient failure"}:{...p,route:{durationMs:20,distanceM:10,toll:0,checkedAt:new Date().toISOString(),trafficAware:true,path:[]},drivingDistance:10,drivingDuration:20,trafficDuration:20})};
     })); assert.equal(posted,2); assert.equal(last.snapshot.completed,false); assert.equal(last.snapshot.candidates.length,4);
-    let resumedPosts=0;
+    let resumedPosts=0,retriedFailed=false;
     const resumed=await helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"양꼬치",radius:5000,count:5,expand:true},new AbortController().signal,()=>{},async(path,body)=>{
       resumedPosts++;
-      if(path==="/api/store-parking") return {enrichments:body.candidates.map(p=>({id:p.id,storeParking:{status:"unknown",source:"unknown"}})),warnings:[]};
-      assert.equal(path,"/api/nearby-routes"); return {candidates:body.candidates.map(p=>({...p,drivingDistance:10,drivingDuration:20}))};
+      assert.equal(path,"/api/nearby-routes"); if(body.candidates.some(p=>p.id===last.snapshot.candidates[0].id)) retriedFailed=true; return {candidates:body.candidates.map(p=>({...p,route:{durationMs:20,distanceM:10,toll:0,checkedAt:new Date().toISOString(),trafficAware:true,path:[]},drivingDistance:10,drivingDuration:20,trafficDuration:20,routeError:undefined}))};
     },last.snapshot);
-    assert.equal(resumedPosts,Math.ceil((time.search.candidates.length-last.snapshot.candidates.length)/4)+1); assert.equal(resumed.candidates.length,time.search.candidates.length); assert.equal(resumed.completed,true);
+    assert.equal(resumedPosts,Math.ceil((time.search.candidates.length-3)/4)); assert.equal(retriedFailed,true,"Resume must retry a failed candidate"); assert.equal(resumed.candidates.length,time.search.candidates.length); assert.equal(resumed.completed,true);
+    assert.notEqual(helpers.nearbyRequestIdentity({address:"현재 위치",location:origin,query:"양꼬치",radius:5000,count:5,expand:true}),helpers.nearbyRequestIdentity({address:"현재 위치",location:origin,query:"양꼬치",radius:3000,count:5,expand:true}),"Radius must be part of resume identity");
     const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
     Object.defineProperty(globalThis,"navigator",{configurable:true,value:{geolocation:{getCurrentPosition:(_success,fail)=>fail({code:1})}}});
     await assert.rejects(helpers.currentLocation,/권한이 거부/);

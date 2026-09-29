@@ -10,7 +10,7 @@
 - 주소뿐 아니라 장소명 출발지와 사용자 승인 GPS 지원, 동명 장소는 사용자 선택
 - 시간순, 도로거리순, 검색 관련도순, ETA 80% + 거리 20% 추천순
 - `주차 가능한 카페` 같은 검색어에서 POI와 주차 조건 분리
-- 최종 표시 후보의 매장 자체 주차를 Google Places API (New) `parkingOptions`로 보강하고, 확인되지 않은 값은 `unknown` 유지
+- 매장 자체 주차는 확인되지 않으면 `unknown` 유지하고, 인근 주차장과 분리
 - 주차 조건 검색 시 Kakao PK6 인근 주차장을 매장 자체 주차와 분리해 표시
 - 카드에서 전화번호, 도로거리, 직선거리, 장소 출처 비교
 - 부분 실패, 중단, 30분 내 이어하기
@@ -24,7 +24,7 @@ Directions 5는 다중 목적지 행렬 API로 사용하지 않습니다. 직선
 
 - Node.js 22.13 이상
 - npm과 `package-lock.json`
-- runtime secret: `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET`, `KAKAO_REST_API_KEY`, `GOOGLE_PLACES_API_KEY`
+- runtime secret: `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET`, `KAKAO_REST_API_KEY`
 - 지도 화면에는 NAVER Dynamic Map 활성화와 배포 domain 등록 필요
 
 실제 secret은 repository에 저장하지 않습니다. 이름은 `.env.example`을 참고하고 배포 값은 Sites의 secret runtime entries에서 관리합니다.
@@ -52,7 +52,7 @@ node scripts/check-nearby.mjs
 npm run lint
 ```
 
-기본 주변 검색 검사는 mock Kakao/NAVER/Google 응답을 workerd에서 사용합니다. Google `parkingOptions`는 표시 개수만큼 요청되며, 정렬 변경이나 marker 선택은 재호출하지 않습니다.
+기본 주변 검색 검사는 mock Kakao/NAVER 응답을 workerd에서 사용하며, dormant Google matching helper도 실제 네트워크 없이 회귀 검사합니다. active 검색 flow는 Google Places를 호출하거나 그 데이터를 CSV/WebMCP로 내보내지 않습니다. 정렬 변경이나 카드·marker 선택도 provider를 재호출하지 않습니다.
 
 실제 provider를 확인할 때는 필요한 credential을 설정한 뒤 다음 명령을 사용합니다. 이 검사는 실제 API 사용량과 비용이 발생할 수 있습니다.
 
@@ -62,7 +62,7 @@ npm run lint
 node scripts/check-nearby.mjs --live
 ```
 
-최근 검증 결과와 Google 매장 주차 보강의 현재 상태는 `PROJECT_CONTEXT.md`에 기록합니다.
+최근 검증 결과와 provider 정책에 따른 매장 주차 기능의 현재 상태는 `PROJECT_CONTEXT.md`에 기록합니다.
 
 Web App manifest와 192/512/maskable 아이콘, credentialed manifest 연결은 production에서 확인됐다. 실제 Android Chromium의 아이콘 로드·앱 설치·standalone 실행·인증 흐름까지 확인해야 최종 완료입니다. installability만을 위한 service worker나 가짜 설치 prompt는 사용하지 않습니다.
 

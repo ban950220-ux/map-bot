@@ -6,7 +6,15 @@ export function haversine(origin: Point, place: DestinationCandidate) {
   const a = Math.sin((place.latitude - origin.y) * rad / 2) ** 2 + Math.cos(origin.y * rad) * Math.cos(place.latitude * rad) * Math.sin((place.longitude - origin.x) * rad / 2) ** 2;
   return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, a))));
 }
-export function filterCandidates(items: DestinationCandidate[], origin: Point, radius: number, limit: number, strategy: "distance" | "balanced" = "distance") {
+export function nameMatchesKeyword(place: DestinationCandidate, keyword: string) {
+  const normalizedKeyword = keyword.replace(/\s+/g, "").toLowerCase();
+  return normalizedKeyword.length > 0 && place.name.replace(/\s+/g, "").toLowerCase().includes(normalizedKeyword);
+}
+export function preferKeywordNameMatches(candidates: DestinationCandidate[], keyword: string) {
+  const matches = candidates.filter(candidate => nameMatchesKeyword(candidate, keyword));
+  return matches.length ? matches : candidates;
+}
+export function filterCandidates(items: DestinationCandidate[], origin: Point, radius: number, limit: number, strategy: "distance" | "balanced" = "distance", keyword = "") {
   const ids = new Set<string>(), identities = new Set<string>();
   const candidates = items.filter(p => {
     if (![p.latitude, p.longitude].every(Number.isFinite) || p.isClosed === true) return false;
@@ -17,6 +25,8 @@ export function filterCandidates(items: DestinationCandidate[], origin: Point, r
   if (strategy === "balanced") {
     const maxRank = Math.max(1, ...candidates.map(p => p.relevanceRank ?? candidates.length));
     candidates.sort((a, b) => {
+      const matchOrder = Number(nameMatchesKeyword(b, keyword)) - Number(nameMatchesKeyword(a, keyword));
+      if (matchOrder) return matchOrder;
       const score = (p: DestinationCandidate) => 0.65 * (p.relevanceRank ?? maxRank) / maxRank + 0.35 * (p.straightDistance ?? radius) / Math.max(1, radius);
       return score(a) - score(b) || (a.straightDistance ?? Infinity) - (b.straightDistance ?? Infinity);
     });

@@ -98,5 +98,5 @@ export default function NearbyMap({ clientId, origin, places, selectedId, onSele
     return clearOverlays;
   }, [sdk, origin, places, selectedId, onSelect]);
   const displayError = error || (!clientId ? "지도 표시용 NAVER Client ID가 연결되지 않았습니다." : "");
-  return <div className="nearby-map-wrap"><div ref={container} className="nearby-map" aria-label="출발지와 후보 목적지 지도"/>{!sdk && !displayError && <p className="map-status" role="status">지도 불러오는 중…</p>}{displayError && <p className="map-status error-box" role="alert">{displayError}</p>}</div>;
+  return <div className="nearby-map-wrap" role="region" aria-label="출발지와 후보 목적지 지도"><div ref={container} className="nearby-map"/>{!sdk && !displayError && <p className="map-status" role="status">지도 불러오는 중…</p>}{displayError && <p className="map-status error-box" role="alert">{displayError}</p>}</div>;
 }

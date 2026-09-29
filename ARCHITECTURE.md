@@ -2,7 +2,7 @@
 
 ## System Overview
 
-`가까운 한 끼`는 React/Vinext UI와 Cloudflare Worker API가 한 저장소에서 빌드되는 개인용 지도 탐색 애플리케이션이다. 서버 API가 Kakao Local, NAVER Maps, Google Places API (New)를 역할별로 조합하고, 브라우저는 후보 비교와 지도 표시를 담당한다. 운영 DB, background worker, scheduler, bot, LLM 호출은 없다.
+`가까운 한 끼`는 React/Vinext UI와 Cloudflare Worker API가 한 저장소에서 빌드되는 개인용 지도 탐색 애플리케이션이다. 서버 API가 Kakao Local과 NAVER Maps를 역할별로 조합하고, 브라우저는 후보 비교와 지도 표시를 담당한다. 운영 DB, background worker, scheduler, bot, LLM 호출은 없다.
 
 ```mermaid
 flowchart LR
@@ -11,14 +11,12 @@ flowchart LR
     AUTH --> GEO[NAVER Geocoding]
     AUTH --> PLACE[Kakao Local search]
     AUTH --> ROUTE[NAVER Directions 5]
-    AUTH --> PARKING[Google Places store parking]
     UI --> MAP[NAVER Maps JS SDK]
     UI --> SESSION[sessionStorage checkpoint]
     PLACE --> FILTER[Deduplicate + Haversine filter]
     FILTER --> ROUTE
     ROUTE --> RANK[ETA / road-distance ranking]
-    RANK --> PARKING
-    PARKING --> UI
+    RANK --> UI
 ```
 
 ## Application Entry Points
@@ -29,7 +27,7 @@ flowchart LR
 - `app/api/geocode/route.ts`: 주소 지오코딩
 - `app/api/places/route.ts`: 주변 후보 검색
 - `app/api/nearby-routes/route.ts`: 최대 4개 후보의 경로 계산
-- `app/api/store-parking/route.ts`: 최종 표시 후보 최대 15개의 Google 매장 주차정보 보강
+- `app/api/store-parking/route.ts`: Google Places와 NAVER 지도 결합 표시 정책을 검토하는 동안 410으로 비활성화된 compatibility endpoint
 - `app/api/compare/route.ts`: legacy 저장 매장/직접 목적지 비교
 - `dist/server/index.js`: `npm run build`가 생성하는 Cloudflare Worker entry point
 
@@ -55,8 +53,7 @@ flowchart LR
 - `services/maps/routing.ts`: NAVER `trafast` 단일 목적지 자동차 경로와 45초 TTL cache를 제공한다.
 - `services/maps/routeMatrix.ts`: provider capability를 추상화하되 현재는 matrix가 아닌 최대 4개 worker의 단건 호출이다.
 - `services/maps/ranking.ts`: Haversine 필터, deduplication, ETA/도로거리/추천 정렬 정책을 담당한다.
-- `services/maps/googlePlaceMatching.ts`: Google 결과와 Kakao 후보의 이름·주소·좌표를 보수적으로 대조하고 주차 유형을 해석하는 순수 로직이다.
-- `services/maps/googlePlaces.ts`: Places Text Search (New), 8초 timeout, 최대 3개 concurrency와 enrichment 실패 격리를 담당한다. Google Places Content는 캐시하지 않는다.
+- `services/maps/googlePlaceMatching.ts`, `googlePlaces.ts`: 이전 Google 주차 실험의 보수적 matching과 client다. 현재 사용자 flow와 API endpoint에서는 호출하지 않으며, 정책에 맞는 별도 UI가 결정되기 전까지 dormant 상태로 유지한다.
 - `lib/naver.ts`: Geocoding/Directions 5 HTTP client, 18초 timeout, redirect 차단, provider 오류 mapping을 담당한다.
 
 ## Nearby Data Flow
@@ -64,15 +61,14 @@ flowchart LR
 1. 사용자가 주소·장소명 또는 browser geolocation 좌표, query, radius, count를 입력한다.
 2. 직접 입력은 `/api/geocode`가 NAVER Geocoding을 먼저 사용한다. 주소 결과가 없고 Kakao 장소가 하나면 `Point`, 여러 개면 선택 후보를 반환하며 브라우저는 사용자가 고른 좌표로 계속한다.
 3. 검색어에서 POI와 지원 조건을 분리한다. 주차 조건은 인식하되 provider가 값을 주지 않으면 `unknown`으로 유지한다.
-4. `/api/places`가 Kakao Local을 호출한다. keyword는 관련도와 직선거리를 함께 고려하고 category는 거리순을 사용한다. 20 km 초과는 구면 원을 포함하는 rectangle을 보내고 Haversine으로 원 밖 결과를 제거한다.
+4. `/api/places`가 Kakao Local을 호출한다. keyword는 관련도와 직선거리를 함께 고려하며 이름이 검색어와 직접 일치하는 후보가 있으면 일반 업종 후보를 최종 route pool에서 제외한다. category는 이름 일치를 강제하지 않고 거리순을 사용한다. 20 km 초과는 구면 원을 포함하는 rectangle을 보내고 Haversine으로 원 밖 결과를 제거한다.
 5. 주차 조건이면 후보 영역의 Kakao PK6를 한 번 조회해 각 후보 500m 안의 최근접 주차장을 `nearbyParking`으로 연결한다.
 6. id 및 이름/좌표 identity로 중복을 제거하고 후보를 최대 30개 유지한다.
 7. client가 후보를 4개씩 `/api/nearby-routes`에 보낸다. 서버도 최대 4개 worker로 NAVER Directions 5를 호출한다.
 8. 개별 경로 실패는 해당 후보의 `routeError`로 반환한다. fatal auth/quota 오류는 이후 후보를 중단하되 이미 성공한 결과는 보존한다.
 9. 성공 후보를 교통 ETA, 도로거리, 검색 관련도 또는 `0.8 * normalized ETA + 0.2 * normalized distance`로 정렬한다.
-10. 현재 정렬 기준의 최종 표시 N개만 `/api/store-parking`으로 보내고, 서버가 후보마다 Google Text Search (New)를 한 번씩 최대 3개 동시 실행한다. 이름·주소·좌표가 모두 기준을 통과할 때만 `parkingOptions`를 `storeParking`으로 반영한다.
-11. Google 매칭 실패·timeout·quota·정보 미제공은 `unknown`으로 유지하고 기존 Kakao/NAVER 결과를 보존한다. `false` 또는 누락 값을 주차 불가로 해석하지 않는다.
-12. 결과를 목록·지도·CSV로 표시한다. 모든 후보 marker와 선택 후보의 경로선만 표시하며 정렬·marker 변경은 API를 다시 호출하지 않는다. Google Places 정보는 같은 카드 안에서 `Google Maps`로 표시한다.
+10. `storeParking`은 `unknown`으로 유지한다. Kakao PK6의 `nearbyParking`을 매장 자체 주차로 승격하지 않는다.
+11. 결과 목록을 먼저, NAVER 지도를 보조 시각화로 뒤에 표시한다. 모든 후보 marker와 선택 후보의 경로선만 표시하며 정렬·카드·marker 변경은 API를 다시 호출하지 않는다.
 
 ## Legacy Data Flow
 
@@ -84,7 +80,7 @@ flowchart LR
 - `db/`와 `examples/d1/`은 Sites starter의 opt-in scaffold이며 운영 data flow에 참여하지 않는다.
 - `lib/stores.json`은 version-controlled legacy static data다.
 - `TtlCache`는 각 Worker isolate 메모리의 bounded LRU-like TTL map이다. 재시작·다른 isolate 사이에 공유되지 않는다.
-- resume checkpoint는 browser sessionStorage에 최대 30분 보관하며 route geometry와 Google Places 주차정보는 저장하지 않는다.
+- resume checkpoint는 browser sessionStorage에 최대 30분 보관한다. request identity는 출발지 입력/좌표, query, radius, count, expand를 포함하며 route geometry와 Google Places 주차정보는 저장하지 않는다.
 
 ## External APIs
 
@@ -94,10 +90,20 @@ flowchart LR
 | NAVER Geocoding | 주소→좌표 | ID/Secret server-only | 18초 timeout, redirect 차단 |
 | NAVER Directions 5 | 자동차 ETA·거리·path | ID/Secret server-only | 후보별 부분 실패, auth/quota fatal |
 | NAVER Maps JS SDK | 지도 rendering | 공개 Client ID만 browser 전달 | 실패 시 목록 비교 유지 |
-| Google Places API (New) | 최종 후보 매장 자체 주차 `parkingOptions` | API key server-only | 8초 timeout, 후보별 unknown fallback, core 검색 유지 |
+| Google Places API (New) | 현재 active flow에서 사용하지 않음 | 기존 key가 있어도 호출하지 않음 | non-Google map 결합·export 정책에 맞는 설계 전까지 disabled |
 | Sites/ChatGPT auth | 개인 접근 식별 | trusted request headers | 없으면 API 401 |
 
-재시도 로직은 현재 없다. 사용자가 명시적으로 재실행하거나 중단 checkpoint를 재개한다.
+재시도 로직은 현재 없다. Kakao 401/403과 NAVER auth/quota는 재시도하지 않는다. NAVER 429의 quota/config와 throttle/rate 세부 코드를 아직 구조화하지 않았으므로 429 자동 재시도도 하지 않는다. 5xx/network에 bounded backoff를 넣으려면 먼저 실제 latency·failure rate와 전체 request budget을 측정하고, 사용자 abort를 즉시 전파해야 한다.
+
+## Provider Call and Latency Budget
+
+측정 평균이 아니라 코드상 요청 구조다. 일반 표시 개수 5도 후보 품질을 위해 최소 15곳을 라우팅하므로, 캐시 miss의 보통 경로는 NAVER geocode 1 + Kakao POI 1~3 + NAVER Directions 15, 즉 17~19건이다. 주차 조건은 Kakao PK6 1건이 추가된다. 장소명 fallback은 Kakao origin search 1건이 추가될 수 있다.
+
+반경을 1km부터 200km까지 모두 확대하고 각 반경에서 3페이지를 읽는 이론상 상한은 Kakao POI 27건이다. 여기에 NAVER geocode 1, 장소명 fallback 1, PK6 1, Directions 30을 더한 최대 60건이다. Directions concurrency는 4, Kakao 확대/page는 순차다. timeout은 Kakao 요청별 10초, NAVER 요청별 18초이며 전체 search deadline은 아직 없다. isolate-local cache는 geocode/POI 5분, route 45초일 뿐 shared cache나 global limiter가 아니다.
+
+## Observability Specification
+
+운영 로그 retention과 접근 범위가 확인되기 전에는 production event logging을 추가하지 않는다. 도입 시 한 요청의 임의 correlation ID와 다음 allowlist만 기록한다: `provider`, `operation`, `category`(`validation|auth|permission|quota|throttle|timeout|network|upstream_5xx|no_result|aborted|unknown`), `outcome`(`success|partial|fatal`), coarse latency bucket, candidate requested/succeeded/failed counts, cache hit 여부. 주소, 좌표, 검색어, 장소명, provider response body, credential, ChatGPT user header는 기록하지 않는다. correlation ID도 사용자·위치와 연결하거나 browser storage에 보존하지 않는다.
 
 ## WebMCP and AI Boundary
 
@@ -108,7 +114,7 @@ flowchart LR
 - `MapsError`가 사용자용 message, HTTP status, fatal 여부를 전달한다.
 - Zod 오류는 400, 잘못된 content type은 415, 큰 body는 413이다.
 - provider redirect는 credential 유출 방지를 위해 따라가지 않는다.
-- UI abort는 진행 중 fetch를 취소하고 완료된 후보만 임시 결과로 남긴다.
+- UI abort는 진행 중 fetch를 취소하고 완료된 후보만 임시 결과로 남긴다. candidate-specific 실패는 수동 재개 때 다시 시도하지만 auth/quota/throttle fatal snapshot은 이어하기 버튼을 제공하지 않고 설정 확인 후 새 검색을 요구한다.
 - 일부 후보 실패는 전체 성공 결과를 삭제하지 않는다.
 
 ## Deployment
@@ -117,7 +123,7 @@ flowchart LR
 - `build/sites-vite-plugin.ts`가 Sites manifest와 Worker packaging을 연결한다.
 - `.openai/hosting.json`은 기존 Sites `project_id`를 보존하며 D1/R2를 선언하지 않는다.
 - 배포 runtime은 Cloudflare Workers이며 기존 사이트는 owner-only/private 접근을 유지해야 한다.
-- Dockerfile, GitHub Actions 등 별도 Docker/CI/CD pipeline은 없다.
+- Dockerfile은 없다. `.github/workflows/ci.yml`의 Offline CI가 Node 22 clean install, build, typecheck, mock regression, lint를 실행한다. Sites production 배포는 이 CI와 별도다.
 
 ## Architectural Constraints
 

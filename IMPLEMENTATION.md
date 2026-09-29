@@ -1,5 +1,11 @@
 # 다중 목적지 탐색 및 경로 비교 구현 보고서
 
+## 2026-09-29 감사 후 안정화
+
+현재 product flow를 다시 감사해 주변 후보 탐색을 primary, 저장 매장/단일 목적지를 secondary로 유지했다. 재개 checkpoint identity에 출발지·검색어·반경·개수·확대 조건을 포함하고, 실패 경로는 재개 때 다시 시도한다. keyword 후보 선택에서는 상호명 직접 일치를 가까운 일반 업종 후보보다 우선하되 category 검색은 거리순을 유지한다. 결과 목록을 지도보다 먼저 표시하고, 입력 변경 뒤 남은 결과는 이전 조건임을 명시한다.
+
+Google Places Content를 NAVER 지도와 같은 화면에 결합하고 CSV/WebMCP로 export하던 경로는 provider 정책 검토 결과 비활성화했다. active flow는 Google Places를 호출하지 않으며 `storeParking`은 `unknown`, Kakao PK6의 `nearbyParking`은 별도 상태로 유지한다. 정책에 맞는 별도 UI와 비용 동의가 결정되기 전에는 다시 활성화하지 않는다. 이 문서 아래의 2026-09-10 내용은 당시 구현 기록이며 현재 동작은 `PROJECT_CONTEXT.md`와 `ARCHITECTURE.md`가 우선한다.
+
 ## 2026-09-10 추가 수정: 최대 200km
 
 반경 선택에 50/100/150/200km를 추가했습니다. 카카오 radius는 최대 20km이므로 그보다 넓은 요청은 구면 원을 포함하는 rect 영역으로 검색하고 Haversine 거리로 원 밖 후보를 제거합니다. API가 제공한 가까운 후보 최대 30곳이라는 제한은 유지합니다. UI·서버 입력 검증·WebMCP 반경과 후보 거리 검증을 함께 변경했습니다. 실제 200km 카테고리 검색, 기존 양꼬치/스타벅스 경로, 반경 상한 검증 및 모의 회귀 테스트를 통과했습니다.

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { MapsError } from "@/lib/naver";
 import type { OriginCandidate, Point } from "@/lib/types";
 import { TtlCache } from "./cache";
-import { filterCandidates, haversine, SEARCH_RADII } from "./ranking";
+import { filterCandidates, haversine, preferKeywordNameMatches, SEARCH_RADII } from "./ranking";
 import type { DestinationCandidate, PlaceProvider, PlaceSearchResult } from "./types";
 import { parseSearchIntent } from "./searchIntent";
 const cache = new TtlCache<PlaceSearchResult>(300000, 64);
@@ -123,16 +123,19 @@ export const kakaoPlaces: PlaceProvider = {
         }
         const rankOffset = items.length;
         items.push(...result.documents.map((p, index) => toCandidate(p, rankOffset + index)));
-        const filtered = filterCandidates(items, origin, radius, limit, category ? "distance" : "balanced");
-        limited = result.meta.total_count > filtered.length;
-        if (result.meta.is_end || filtered.length >= limit) break;
+        const filtered = filterCandidates(items, origin, radius, limit, category ? "distance" : "balanced", normalized);
+        const selected = category ? filtered : preferKeywordNameMatches(filtered, normalized);
+        limited = result.meta.total_count > selected.length;
+        if (result.meta.is_end || selected.length >= limit || page === 3) break;
       } catch (error) {
         if (error instanceof MapsError) throw error;
         if (controller.signal.aborted) throw new MapsError("주변 장소 검색이 취소되었거나 응답 시간이 초과되었습니다.", 504);
         throw new MapsError("주변 장소 검색 응답을 확인하지 못했습니다. 다시 시도해 주세요.");
       } finally { clearTimeout(timer); signal?.removeEventListener("abort", cancel); }
     }
-    const output: PlaceSearchResult = { candidates: filterCandidates(items, origin, radius, limit, categories[normalized] ? "distance" : "balanced"), requestedRadius: radius, searchedRadius: radius, expanded: false, cached: false, limited, checkedAt: new Date().toISOString(), warnings: [] };
+    const category = categories[normalized];
+    const filtered = filterCandidates(items, origin, radius, limit, category ? "distance" : "balanced", normalized);
+    const output: PlaceSearchResult = { candidates: category ? filtered : preferKeywordNameMatches(filtered, normalized), requestedRadius: radius, searchedRadius: radius, expanded: false, cached: false, limited, checkedAt: new Date().toISOString(), warnings: [] };
     cache.set(key, output); return output;
   },
 };
@@ -152,8 +155,9 @@ export async function searchNearby(query: string, origin: Point, radius: number,
     }
   }
   const warnings = [...result.warnings];
+  if (result.limited) warnings.push("검색 결과는 Kakao가 반환한 표본 중 최대 30곳을 비교한 것으로, 검색 반경 안의 모든 장소를 포함하지 않을 수 있습니다.");
   if (intent.parkingPreference === "required") {
-    warnings.unshift("주차 조건을 인식했지만 데이터 제공처에서 매장 자체 주차 여부를 확인할 수 없습니다. 아래 인근 주차장은 매장 주차와 별개입니다.");
+    warnings.unshift("주차 조건을 인식했습니다. 매장 자체 주차는 현재 확인할 수 없어 후보를 임의 제외하지 않습니다. 아래 인근 주차장은 매장 주차와 별개입니다.");
     try {
       const parking = await searchNearbyParkingLots(result.candidates, signal);
       result = { ...result, candidates: attachNearbyParking(result.candidates, parking.lots) };
