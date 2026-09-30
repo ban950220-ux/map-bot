@@ -57,8 +57,8 @@ export async function runNearbyComparison(input: NearbyQuery, signal: AbortSigna
     update({ phase: "후보별 자동차 경로 비교 중", done: successfulRouteCount(snapshot), total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });
     if (response.candidates.some(p => p.routeErrorFatal)) throw new Error("API 인증 또는 이용 한도로 조회를 중단했습니다. 완료된 결과와 실패 내역을 확인해 주세요.");
   }
-  snapshot.completed = true;
-  update({ phase: "비교 완료", done: snapshot.candidates.length, total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });
+  snapshot.completed = successfulRouteCount(snapshot) === search.candidates.length;
+  update({ phase: snapshot.completed ? "비교 완료" : "일부 경로 조회 실패 · 이어서 조회 가능", done: successfulRouteCount(snapshot), total: search.candidates.length, snapshot: { ...snapshot, candidates: [...snapshot.candidates] } });
   return snapshot;
 }
 export function currentLocation(): Promise<Point & { accuracy: number }> {

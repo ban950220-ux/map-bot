@@ -75,7 +75,11 @@ export default function NearbyExplorer() {
     const initial: NearbyProgress = resume ? { phase: "중단 지점부터 이어서 조회 중", done: successfulRouteCount(resume), total: resume.search.candidates.length, snapshot: resume } : { phase: "검색 준비 중", done: 0, total: 0 };
     setBusy(true); setError(""); setOriginChoices([]); setRecovery(null); setSelectedId(undefined); setProgress(initial); saveCheckpoint(input, initial);
     setAddress(input.address); setLocation(input.location); setQuery(input.query); setRadius(input.radius); setCount(input.count); setExpand(input.expand); if (input.sort) setSort(input.sort);
-    try { return await runNearbyComparison(input, controller.signal, update => { if (mounted.current && !controller.signal.aborted) { setProgress(update); saveCheckpoint(input, update); } }, undefined, resume); }
+    try {
+      const result = await runNearbyComparison(input, controller.signal, update => { if (mounted.current && !controller.signal.aborted) { setProgress(update); saveCheckpoint(input, update); } }, undefined, resume);
+      if (mounted.current && !controller.signal.aborted && !result.completed) setRecovery(loadCheckpoint());
+      return result;
+    }
     catch (cause) {
       const message = controller.signal.aborted ? "조회를 중단했습니다. 완료된 후보만 임시 순위로 표시합니다." : cause instanceof Error ? cause.message : "조회하지 못했습니다.";
       if (mounted.current) { if (cause instanceof OriginSelectionRequiredError) setOriginChoices(cause.candidates); setError(message); setRecovery(loadCheckpoint()); } throw new Error(message);
@@ -129,12 +133,12 @@ export default function NearbyExplorer() {
       <p className="field-note">최대 30곳의 후보를 4곳씩 병렬 조회합니다.<br/>검색 반경은 직선거리, 최종 순위는 자동차 경로 기준입니다. 200km를 선택해도 API가 반환한 가까운 후보 최대 30곳을 비교합니다.</p>
       <div className="connection">{!status ? (error ? "연결 확인 실패" : "연결 확인 중") : status.connected && status.placesConnected ? "장소 검색 · 자동차 경로 연결됨" : "API 연결 설정이 필요합니다"}</div>
       {status && !status.placesConnected && <p className="connection-help">카카오 REST API 키와 카카오맵 사용 설정을 확인해 주세요.</p>}
-    </section><section className="nearby-results" aria-busy={busy}>
+    </section><section className="nearby-results" aria-label="주변 장소 비교 결과" aria-busy={busy}>
       <div className="panel nearby-summary"><div className="result-heading"><h2>{snapshot ? `${snapshot.query} 비교 결과` : "자동차 경로 비교"}</h2>{visible.length > 0 && <Button variant="ghost" size="sm" onClick={csv} aria-label="상위 결과 CSV 다운로드"><Download size={16}/>CSV</Button>}</div>
       <Tabs value={sort} onValueChange={v => setSort(v as SortMode)}><TabsList className="ranking-tabs"><TabsTrigger value="time">빠른 순</TabsTrigger><TabsTrigger value="distance">도로거리순</TabsTrigger><TabsTrigger value="relevance">관련도순</TabsTrigger><TabsTrigger value="recommended">추천순</TabsTrigger></TabsList></Tabs>
       {sort === "recommended" && <p className="field-note">후보군 내 정규화 점수: 시간 80% + 거리 20%. 낮을수록 우선하며, 평점·영업 여부는 포함하지 않습니다.</p>}
       {sort === "distance" && <p className="field-note">각 장소의 ‘실시간 빠른 길’에 해당하는 자동차 도로거리순입니다. 최단거리 전용 경로를 계산하는 방식은 아닙니다.</p>}
-      {busy && <div className="progress-block" role="status"><p>{progress.phase} · {progress.done}/{progress.total || "…"}</p><Progress value={progress.total ? progress.done / progress.total * 100 : 0}/><p>진행 중 순위는 임시 결과입니다.</p></div>}
+      {busy && <div className="progress-block" role="status"><p>{progress.phase} · {progress.done}/{progress.total || "…"}</p><Progress value={progress.total ? progress.done / progress.total * 100 : 0} aria-label="후보 자동차 경로 조회 진행률"/><p>진행 중 순위는 임시 결과입니다.</p></div>}
       {recovery && !busy && <p className="notice" role="status">{recovery.progress.snapshot?.completed ? "최근 비교 결과를 복원했습니다." : `이전 조회에서 ${recovery.progress.snapshot?.candidates.length || 0}곳의 응답과 경로 성공 ${recovery.progress.snapshot ? successfulRouteCount(recovery.progress.snapshot) : 0}곳을 복원했습니다.`}<br/>{recoveryHasFatalError ? "인증·이용 설정 또는 한도를 확인한 뒤 새로 검색해 주세요." : !recovery.progress.snapshot?.completed && <Button type="button" variant="outline" onClick={() => void run(recovery.input, recovery.progress.snapshot).catch(() => {})}>중단 지점부터 이어서 조회</Button>}</p>}
       {authRequired && <p className="notice"><a href="/signin-with-chatgpt?return_to=%2F" target="_top">ChatGPT로 다시 로그인하고 검색하기</a></p>}
       {error && <div className="error-box" role="alert"><CircleAlert size={18}/>{error}</div>}

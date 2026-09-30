@@ -15,17 +15,20 @@
 - 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
-- 2026-09-29 전면 감사의 local 변경은 Google Places active enrichment와 export를 비활성화하고, resume identity·실패 후보 재시도·상호명 관련도·결과 우선 UI·검색 조건 변경 안내, NAVER 429 quota/throttle 메시지 구분을 보강했다. production에는 아직 배포하지 않았다.
+- Production 안정 baseline은 version **20**, commit `41968b86a30c51e8406faf9c02fa66f83f0215ca`다. 작업 시작 시 local/GitHub main의 일치를 확인했다. 기존 Sites project는 `appgprj_6aa13e471abc819193188a4999e314f6`, rollback point는 version 19다.
+- 2026-09-29 감사 안정화 변경(Google Places active enrichment/export 제거, resume identity, 상호명 관련도, 결과 우선 UI, stale 안내, NAVER quota/throttle 구분)은 v20 배포 완료 기준선에 포함된다. 사용자가 제공한 v20 검증 기록은 owner-only/auth, 일반/브랜드/주차 검색, ETA/거리, Dynamic Map, 390/1200px, PWA assets PASS와 console error 0이다. 이번 작업에서는 live provider/production을 재검사하지 않았다.
 - `ARCHITECTURE.md`에 PII 없는 observability allowlist, provider 호출 상한, retry 판단 기준을 기록했다. 운영 logging과 자동 retry는 retention·latency·failure rate를 측정하기 전에는 추가하지 않는다.
-- 2026-09-29 기준 build, TypeScript 검사, ESLint, mock upstream을 사용한 workerd 회귀 검사는 통과한다.
-- GitHub Actions `Offline CI`는 Node 22 clean install, build, TypeScript, mock 지도 회귀, lint를 자동 실행하며 2026-09-18 첫 run #1이 성공했다.
+- 2026-09-30 로컬 build, TypeScript, ESLint, mock workerd 회귀가 PASS이며 browser 32개 case를 retry 없이 3회 반복해 96/96 PASS(약 2.2분)를 확인했다. 로컬은 Node 24, CI clean install 검증 대상은 Node 22다.
+- `tests/browser`의 Playwright + 실제 빌드 Worker/API + mock upstream acceptance를 추가했다. 32개 case가 핵심 A–M, CSV, WebMCP contract, legacy, GPS fallback, PWA, 5개 viewport를 다룬다. 실제 provider 호출과 Google active 호출은 0이어야 하며 retry 없이 반복한다. 상세 구조/한계는 `BROWSER_ACCEPTANCE.md`에 기록했다.
+- Suite가 완전히 시도된 부분 실패를 완료로 저장해 재개 버튼이 사라지는 P1 버그를 재현했다. 성공 후보 수로 완료를 판정하고 실패 후보만 재시도하도록 최소 수정했다. 360/390px 긴 영문 상호명 줄바꿈과 결과/progress 접근성 이름도 보완했다. 이 후속 runtime 수정은 **production에 배포하지 않았다**.
+- GitHub Actions `Offline CI`는 Node 22 clean install, build, TypeScript, mock 지도 회귀, lint, Chromium browser acceptance를 실행한다. Sites 배포와 별개이며 production secret을 사용하지 않는다.
 - 2026-09-18 production version 18에는 Vinext RSC prefetch 오류를 피하는 native 내부 링크, precise-location 기본값을 제거한 빈 출발지 UI, `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 배포되어 있다. owner-only 인증이 필요한 manifest를 브라우저가 credential과 함께 요청하도록 `crossorigin="use-credentials"`를 적용했다.
-- 2026-09-14 production은 Sites secret revision 18과 version 15를 사용한다. NAVER Geocoding 인증 복구 후 `주차 가능한 카페` 검색에서 자동차 경로 15/15 성공, Dynamic Map의 후보 marker와 선택 경로선, 최종 표시 3곳의 Google 매장 주차 보강, Kakao PK6 인근 주차장 분리를 확인했다.
+- 과거 기록: 2026-09-14의 version 15에서는 Google 매장 주차 보강도 검증했으나, 이 흐름은 현재 v20에 적용되지 않는다. Google은 현재 active flow에서 disabled다.
 - 2026-09-18 owner-only production 읽기 전용 smoke test에서 인증된 검색 화면과 provider 연결 상태, WebMCP 도구 등록, 개인정보 링크의 실제 클릭 이동, manifest 링크와 `use-credentials` 속성을 확인했다. version 18 배포 후 인증된 `/`와 manifest·192/512/maskable 아이콘은 모두 200이고 제거한 개인 출발지가 HTML에 없으며, 비인증 `/`와 manifest 요청은 401로 인증 경계를 유지한다.
 - owner-only browser smoke test에서 360/390/430/768/1200px의 horizontal overflow가 없고 목록이 지도보다 먼저 노출되는 것을 확인했다. 부분 실패·중단·재개와 GPS 거부는 regression fixture로 확인했으며 실제 기기 GPS는 아직 미검증이다.
-- 지원되는 ChatGPT in-app browser에서 WebMCP 도구 등록과 relevance schema 노출을 확인했다. 도구의 전체 end-to-end 실행 검증은 남아 있다.
+- 두 WebMCP 도구의 등록·실제 callback→API 실행은 browser contract shim으로 검증한다. 네이티브 ChatGPT/browser의 discovery·호출 E2E는 **NOT RUN — environment limitation**이며 shim 통과와 구분한다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
-- production version 18에는 아직 Google Places와 NAVER 지도를 결합한 이전 flow가 남아 있어 provider 정책상 배포 우선순위 P0다. local 안정화 변경을 승인 후 기존 Sites project에 배포하고 owner-only 경계와 검색 회귀를 확인해야 한다. 사이트 baseline 완료를 위한 Android Chromium 설치·standalone 검증도 별도로 남아 있다.
+- 이전 version 18의 Google active flow 배포 gate는 v20으로 해소됐다. Android Chromium 실제 설치·standalone·GPS는 미검증이며 `ANDROID_ACCEPTANCE.md`의 checklist를 따른다. 현재 production의 owner-only/access/hosting binding은 변경하지 않았다.
 - canonical Git remote는 `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 2026-09-18 GitHub 연결 메타데이터는 repository visibility를 `public`으로 반환하므로, owner-only Sites 접근과 source repository 공개범위를 동일한 것으로 간주하지 않는다. 현재 source에서는 개인 precise-location 기본값을 주변 탐색·legacy UI와 live 진단 fixture에서 제거했으며 UI 출발지는 빈 값에서 시작한다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
 
 ## Tech Stack
@@ -43,6 +46,7 @@
 - `services/maps/`: 장소 검색, 지오코딩 adapter, 경로 계산, ranking, schema, TTL cache
 - `lib/`: NAVER client, API auth/error helper, client orchestration, WebMCP, 저장 매장 데이터
 - `scripts/`: build/runtime 지원 및 mock/live 회귀 검사
+- `tests/browser/`, `playwright.config.mjs`: credential-free 실제 UI/API browser acceptance
 - `db/`, `drizzle/`, `examples/d1/`: 현재 비활성인 DB scaffold와 opt-in 예제
 - `.openai/hosting.json`: 기존 Sites 프로젝트와 binding 선언
 - `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`: 영구 작업 규칙, 구조, backlog
@@ -76,7 +80,7 @@
 - Kakao PK6는 장소 기본정보만 제공해 요금·운영시간·구획 수를 채우지 않는다. 전국주차장표준데이터 연동은 서비스 키와 운영 범위 결정이 없어 미구현이다.
 - D1/Drizzle 파일은 starter scaffold뿐이며 schema와 hosted binding이 없다.
 - `RoutingProvider`에는 미래 walking/bicycling/transit type과 matrix interface가 있지만 현재 구현은 NAVER 자동차 단건 경로뿐이다.
-- WebMCP는 코드에 등록되어 있으나 지원 브라우저에서 end-to-end 검증되지 않았다.
+- WebMCP contract E2E는 mock upstream으로 검증하지만 네이티브 지원 browser/host E2E는 미검증이다.
 - 설치형 Web App용 manifest와 192/512/maskable 아이콘은 production version 17에 배포됐고 인증된 HTML의 credentialed manifest 연결까지 확인했다. 실제 Android Chromium의 아이콘 로드·앱 설치·standalone 실행·인증 흐름 검증은 남아 있어 그 전에는 설치 완료로 판정하지 않는다.
 
 ## Known Issues

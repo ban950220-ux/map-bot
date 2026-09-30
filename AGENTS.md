@@ -27,6 +27,7 @@ Codex 전역 `AGENTS.md`와 `%USERPROFILE%\.codex\rules\`를 기본 규칙으로
 - TypeScript 또는 서버 변경: `npm run build`, `npx tsc --noEmit`
 - 주변 검색 로직 변경: `node scripts/check-nearby.mjs`
 - 정적 검사: `npm run lint`
+- UI/state/API flow 변경: `npm run test:browser` (빌드 포함, mock upstream, 실제 provider 호출 없음). suite 자체 변경은 `npm run test:browser:repeat`로 retry 없이 3회 반복한다. 설치/한계는 `BROWSER_ACCEPTANCE.md` 참조.
 - 실제 provider 검증: `node scripts/check-nearby.mjs --live` (요청 범위에 포함되고 전역 외부 작업 규칙의 조건을 충족할 때만)
 
 현재 구현·검증 상태는 `PROJECT_CONTEXT.md`, 구조와 데이터 흐름은 `ARCHITECTURE.md`, 열린 작업은 `TASKS.md`, 설치·실행법은 `README.md`를 기준으로 한다.

@@ -329,10 +329,12 @@
   color: var(--map-ink);
   font-size: 17px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 .lovable-map-ui .place-select p,
 .lovable-map-ui .place-select small {
   color: var(--map-muted);
+  overflow-wrap: anywhere;
 }
 .lovable-map-ui .place-metrics {
   padding-left: 14px;

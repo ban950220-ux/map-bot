@@ -32,3 +32,7 @@ jobs:
         run: node scripts/check-nearby.mjs
       - name: Lint
         run: npm run lint
+      - name: Install Chromium and OS dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Run deterministic browser acceptance (no provider credentials)
+        run: npx playwright test

@@ -50,9 +50,16 @@ npm run build
 npx tsc --noEmit
 node scripts/check-nearby.mjs
 npm run lint
+npx playwright install chromium
+npm run test:browser
+npm run test:browser:repeat
 ```
 
 기본 주변 검색 검사는 mock Kakao/NAVER 응답을 workerd에서 사용하며, dormant Google matching helper도 실제 네트워크 없이 회귀 검사합니다. active 검색 flow는 Google Places를 호출하거나 그 데이터를 CSV/WebMCP로 내보내지 않습니다. 정렬 변경이나 카드·marker 선택도 provider를 재호출하지 않습니다.
+
+Browser acceptance는 실제 빌드 UI → 실제 Worker API → mock upstream을 사용합니다. provider secret이나 실제 API 호출 없이 32개 case를 실행하며 race, partial/resume, checkpoint identity, 브랜드 ranking, Google zero-call을 고정합니다. `test:browser`는 먼저 build하고, `test:browser:repeat`는 retry 없이 3회 반복합니다. 이미 build한 뒤 특정 테스트만 실행하려면 `npx playwright test --grep "E/F"`를 사용합니다. CI의 Node 22/Ubuntu에는 `npx playwright install --with-deps chromium`이 필요합니다.
+
+단위/mock(Layer 1), browser/mock(Layer 2), 승인된 production live smoke(Layer 3)는 서로 대체하지 않습니다. 설정·fixture·CI·실패 artifact 정책과 SDK/WebMCP 한계는 [BROWSER_ACCEPTANCE.md](BROWSER_ACCEPTANCE.md), 실제 Android 확인은 [ANDROID_ACCEPTANCE.md](ANDROID_ACCEPTANCE.md)를 참고하세요.
 
 실제 provider를 확인할 때는 필요한 credential을 설정한 뒤 다음 명령을 사용합니다. 이 검사는 실제 API 사용량과 비용이 발생할 수 있습니다.
 
@@ -74,6 +81,8 @@ Web App manifest와 192/512/maskable 아이콘, credentialed manifest 연결은 
 - `ARCHITECTURE.md`: 시스템 구성과 데이터 흐름
 - `TASKS.md`: 미완료 작업의 우선순위와 acceptance criteria
 - `IMPLEMENTATION.md`: 주변 탐색 구현의 상세 배경
+- `BROWSER_ACCEPTANCE.md`: v20 기준선과 deterministic browser suite
+- `ANDROID_ACCEPTANCE.md`: 설치·standalone·GPS 실기기 checklist (아직 미검증)
 
 ## Repository
 

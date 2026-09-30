@@ -142,7 +142,7 @@ try {
     assert.ok(googlePeak<=3); assert.equal(googleCalls,6); assert.equal(helpers.parkingEnrichmentSchema.safeParse({candidates:time.ranked.slice(0,15).map(({id,name,address,latitude,longitude})=>({id,name,address,latitude,longitude}))}).success,true);
     const clientResult=await helpers.runNearbyComparison({address:"현재 위치",location:{...origin,accuracy:7},query:"주차 가능한 카페",radius:5000,count:3,expand:false,sort:"distance"},new AbortController().signal,()=>{},async(path,body)=>{
       if(path==="/api/places") return parkingIntent;
-      if(path==="/api/nearby-routes") return {candidates:body.candidates.map((p,index)=>({...p,drivingDistance:(Number(p.id.split(":")[1])+index)*100,drivingDuration:60000+index}))};
+      if(path==="/api/nearby-routes") return {candidates:body.candidates.map((p,index)=>({...p,drivingDistance:(Number(p.id.split(":")[1])+index)*100,drivingDuration:60000+index,route:{durationMs:60000+index,distanceM:(Number(p.id.split(":")[1])+index)*100,toll:0,checkedAt:new Date().toISOString(),trafficAware:true,path:[]}}))};
       assert.fail(`Unexpected client request: ${path}`);
     });
     assert.equal(clientResult.completed,true); assert.ok(clientResult.candidates.every(p=>p.storeParking.status==="unknown"),"Active comparison must not mix Google Places content with the NAVER map");
@@ -216,6 +216,19 @@ try {
       assert.equal(path,"/api/nearby-routes"); if(body.candidates.some(p=>p.id===last.snapshot.candidates[0].id)) retriedFailed=true; return {candidates:body.candidates.map(p=>({...p,route:{durationMs:20,distanceM:10,toll:0,checkedAt:new Date().toISOString(),trafficAware:true,path:[]},drivingDistance:10,drivingDuration:20,trafficDuration:20,routeError:undefined}))};
     },last.snapshot);
     assert.equal(resumedPosts,Math.ceil((time.search.candidates.length-3)/4)); assert.equal(retriedFailed,true,"Resume must retry a failed candidate"); assert.equal(resumed.candidates.length,time.search.candidates.length); assert.equal(resumed.completed,true);
+    const partialInput={address:"fixture origin",location:origin,query:"양꼬치",radius:5000,count:5,expand:true};
+    const partial=await helpers.runNearbyComparison(partialInput,new AbortController().signal,()=>{},async(path,body)=>{
+      if(path==="/api/places")return time.search;
+      return {candidates:body.candidates.map(p=>p.id===time.search.candidates[0].id?{...p,routeError:"temporary fixture failure"}:resumed.candidates.find(r=>r.id===p.id))};
+    });
+    assert.equal(partial.completed,false,"A fully attempted but partially failed search must remain resumable");
+    assert.equal(helpers.successfulRouteCount(partial),time.search.candidates.length-1);
+    let retryCount=0;
+    const recovered=await helpers.runNearbyComparison(partialInput,new AbortController().signal,()=>{},async(path,body)=>{
+      assert.equal(path,"/api/nearby-routes");retryCount+=body.candidates.length;
+      return {candidates:body.candidates.map(p=>resumed.candidates.find(r=>r.id===p.id))};
+    },partial);
+    assert.equal(retryCount,1);assert.equal(recovered.completed,true);
     assert.notEqual(helpers.nearbyRequestIdentity({address:"현재 위치",location:origin,query:"양꼬치",radius:5000,count:5,expand:true}),helpers.nearbyRequestIdentity({address:"현재 위치",location:origin,query:"양꼬치",radius:3000,count:5,expand:true}),"Radius must be part of resume identity");
     const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
     Object.defineProperty(globalThis,"navigator",{configurable:true,value:{geolocation:{getCurrentPosition:(_success,fail)=>fail({code:1})}}});

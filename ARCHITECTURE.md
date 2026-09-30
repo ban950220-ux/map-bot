@@ -81,6 +81,7 @@ flowchart LR
 - `lib/stores.json`은 version-controlled legacy static data다.
 - `TtlCache`는 각 Worker isolate 메모리의 bounded LRU-like TTL map이다. 재시작·다른 isolate 사이에 공유되지 않는다.
 - resume checkpoint는 browser sessionStorage에 최대 30분 보관한다. request identity는 출발지 입력/좌표, query, radius, count, expand를 포함하며 route geometry와 Google Places 주차정보는 저장하지 않는다.
+- 모든 후보를 시도했어도 경로 실패가 있으면 `completed=false`로 남긴다. 성공한 후보를 보존하고 실패 후보만 수동 재시도한다. 모든 성공(또는 POI 0개)에서만 완료 checkpoint가 된다.
 
 ## External APIs
 
@@ -123,7 +124,13 @@ flowchart LR
 - `build/sites-vite-plugin.ts`가 Sites manifest와 Worker packaging을 연결한다.
 - `.openai/hosting.json`은 기존 Sites `project_id`를 보존하며 D1/R2를 선언하지 않는다.
 - 배포 runtime은 Cloudflare Workers이며 기존 사이트는 owner-only/private 접근을 유지해야 한다.
-- Dockerfile은 없다. `.github/workflows/ci.yml`의 Offline CI가 Node 22 clean install, build, typecheck, mock regression, lint를 실행한다. Sites production 배포는 이 CI와 별도다.
+- Dockerfile은 없다. `.github/workflows/ci.yml`의 Offline CI가 Node 22 clean install, build, typecheck, mock regression, lint, Chromium acceptance를 실행한다. Sites production 배포는 이 CI와 별도다.
+
+## Deterministic Browser Validation
+
+Playwright는 devDependency이며 production bundle에 포함하지 않는다. `tests/browser/harness.mjs`의 loopback test gateway가 빌드된 React/Vinext UI와 실제 Miniflare Worker/API를 제공한다. Synthetic cookie→trusted header 변환은 test 전용 경계이고 runtime auth는 변경하지 않는다. Worker outbound와 browser external network는 fail-closed fixture로 통제하며 실제 Kakao/NAVER/Google 요청은 하지 않는다. 테스트별 Worker/cache/browser가 격리된다.
+
+NAVER SDK contract fake는 실제 marker DOM·선 좌표·선택 callback을 처리하지만 실제 지도 타일/SDK 호환성은 보증하지 않는다. WebMCP도 registerTool shim을 거치는 실제 callback/API E2E이며 네이티브 플랫폼 지원 검증은 별도다. `BROWSER_ACCEPTANCE.md`에 coverage·artifact·CI 한계를, `ANDROID_ACCEPTANCE.md`에 실제 설치/GPS gate를 기록한다.
 
 ## Architectural Constraints
 
