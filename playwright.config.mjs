@@ -18,6 +18,8 @@ export default defineConfig({
     timezoneId: 'Asia/Seoul',
     serviceWorkers: 'block',
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    // Raw traces record request headers/cookies, including synthetic test auth.
+    // Keep only failure screenshots and the explicit header-free audit summary.
+    trace: 'off',
   },
 });

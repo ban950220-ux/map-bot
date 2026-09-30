@@ -42,6 +42,7 @@ test('legacy direct and saved-store UI flows remain usable; expanding results ma
 });
 
 test('map SDK failure leaves list, ETA, road distance, sorting and CSV usable', async ({app:page,context,harness:h}) => {
+  h.expectedConsoleFailures.push({ path:'/openapi/v3/maps.js',message:'Failed to load resource: net::ERR_FAILED',remaining:1 });
   await context.route('https://oapi.map.naver.com/**',route=>route.abort());
   await search(page);await complete(page);
   await expect(page.locator('.map-status')).toContainText('지도');
@@ -66,7 +67,8 @@ test('all candidate failures remain recoverable and restore after refresh', asyn
   await page.getByRole('button',{name:'중단 지점부터 이어서 조회'}).click();await complete(page);
 });
 
-test('browser network failure preserves successful checkpoint and retries pending batch',async({app:page,context})=>{
+test('browser network failure preserves successful checkpoint and retries pending batch',async({app:page,context,harness:h})=>{
+  h.expectedConsoleFailures.push({ path:'/api/nearby-routes',message:'Failed to load resource: net::ERR_FAILED',remaining:1 });
   let batches=0;
   await context.route('**/api/nearby-routes',route=>++batches===2?route.abort():route.continue());
   await search(page);

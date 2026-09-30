@@ -15,8 +15,8 @@ async function noOverflow(page) {
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 }
 
-for(const width of [360,390,430,768,1200])test(`responsive ${width}px: long content, keyboard selector, ambiguity, error, list-first map`,async({app:page,harness:h})=>{
-  await page.setViewportSize({width,height:844});h.state.longText=true;
+for(const [width,height] of [[360,800],[390,844],[430,932],[768,1024],[1200,900]])test(`responsive ${width}x${height}: long content, keyboard selector, ambiguity, error, list-first map`,async({app:page,harness:h})=>{
+  await page.setViewportSize({width,height});h.state.longText=true;
   for(const name of ['출발지','어떤 장소를 찾으세요?'])await expect(page.getByRole('textbox',{name,exact:true})).toBeVisible();
   const radius=page.getByRole('combobox',{name:'검색 반경',exact:true});
   await radius.focus();await expect(radius).toBeFocused();
@@ -28,7 +28,7 @@ for(const width of [360,390,430,768,1200])test(`responsive ${width}px: long cont
   await button.scrollIntoViewIfNeeded();await expect(button).toBeInViewport();
   expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
   // Reduced viewport approximates available space above a keyboard; not a device keyboard certification.
-  if(width<500){await page.setViewportSize({width,height:420});await page.getByLabel('출발지',{exact:true}).focus();await button.scrollIntoViewIfNeeded();await expect(button).toBeInViewport();await page.setViewportSize({width,height:844});}
+  if(width<500){await page.setViewportSize({width,height:420});await page.getByLabel('출발지',{exact:true}).focus();await button.scrollIntoViewIfNeeded();await expect(button).toBeInViewport();await page.setViewportSize({width,height});}
   await search(page);await complete(page);
   await expect(page.locator('.place-card').first()).toContainText(LONG_NAME);
   await expect(page.locator('.place-card').first()).toContainText(LONG_ADDRESS);

@@ -17,7 +17,7 @@ export function installMapSdk() {
     destroy() { this.element.replaceChildren(); }
   }
   class Marker {
-    constructor(options) { this.node = options.icon.content; options.map.element.append(this.node); }
+    constructor(options) { this.node = options.icon.content; this.node.dataset.markerPosition = JSON.stringify(options.position); options.map.element.append(this.node); }
     setMap(map) { if (!map) this.node.remove(); }
   }
   class Polyline {

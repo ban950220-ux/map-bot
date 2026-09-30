@@ -69,13 +69,13 @@ export function createUpstream() {
     state.active++; state.peak = Math.max(state.peak, state.active);
     const hold = state.holdRoutes;
     try {
-      if (hold && hold.ids.includes(id)) await hold.gate.promise;
+      if (hold && hold.ids.includes(id) && (!hold.start || hold.start === p.get('start'))) await hold.gate.promise;
       else await new Promise(resolve => setTimeout(resolve, 15));
       if (state.fatal && id >= 5) return Response.json({ error: { errorCode: '400' } }, { status: state.fatal });
       if (state.failures.has(id)) return Response.json({ error: 'fixture upstream failure' }, { status: 500 });
       return Response.json({ code: 0, route: { [option]: [{
         summary: { duration: (option === 'traoptimal' ? 10 : 16 - id) * 60000, distance: (option === 'traoptimal' ? 5 : id + 1) * 1000, tollFare: 0 },
-        path: [[ORIGIN.x, ORIGIN.y], p.get('goal').split(',').map(Number)],
+        path: [p.get('start').split(',').map(Number), p.get('goal').split(',').map(Number)],
       }] } });
     } finally { state.active--; state.finished++; }
   }

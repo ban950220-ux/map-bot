@@ -132,6 +132,8 @@ Playwright는 devDependency이며 production bundle에 포함하지 않는다. `
 
 NAVER SDK contract fake는 실제 marker DOM·선 좌표·선택 callback을 처리하지만 실제 지도 타일/SDK 호환성은 보증하지 않는다. WebMCP도 registerTool shim을 거치는 실제 callback/API E2E이며 네이티브 플랫폼 지원 검증은 별도다. `BROWSER_ACCEPTANCE.md`에 coverage·artifact·CI 한계를, `ANDROID_ACCEPTANCE.md`에 실제 설치/GPS gate를 기록한다.
 
+41개 browser case가 POI/route 두 단계의 늦은 응답, abort 후 상태 보존, 출발지·x·y·query·radius·count·expand identity와 동일 identity 재개를 보호한다. 모든 app fixture는 unexpected console.error/pageerror를 거부한다. Raw trace/HAR는 auth header/cookie 기록을 피하기 위해 끄고, 실패 시 synthetic 화면 screenshot과 allowlisted summary만 남긴다.
+
 ## Architectural Constraints
 
 - Directions 5의 multi-goal은 1×N matrix가 아니므로 행렬처럼 사용하지 않는다.
