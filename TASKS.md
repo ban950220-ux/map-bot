@@ -4,12 +4,12 @@
 
 ## Release Gate
 
-- [ ] **P1** browser suite에서 발견한 후속 runtime 수정의 기존 Sites 배포 승인 및 제한된 production 확인
-  - v20 자체는 완료된 안정 baseline이다. 후속 변경은 완전히 시도된 부분 실패의 재개 버튼 복구, 긴 영문 상호명 줄바꿈, 결과/progress 접근성 이름이다.
-  - GitHub push는 Sites 배포가 아니다. 별도 승인 전 v20을 유지하며 새 Site/auth 변경은 금지한다.
-  - 승인 후 기존 project에서 검색/partial resume/mobile을 확인한다. rollback point version 19 및 현재 v20을 보존한다.
+- 후속 runtime 수정의 배포 gate는 2026-10-01 기존 Site v21에서 해소됐다. 현재 source/deployment/CI 정합성은 `PROJECT_CONTEXT.md`의 closure 기준을 따른다. rollback v20과 이전 v19를 보존한다.
+- [ ] **P2** 별도 과금 가능성 승인 후 제한된 production live smoke
+  - 실제 카페·스타벅스·주차 조건 검색은 same-SHA deterministic PASS와 구분한다. 기존 owner-authenticated browser root/legacy 화면은 확인했으며 계정 로그인 작업은 필요하지 않았다.
+  - 공개 출발지, 자동 반경 확대 없음, 검색별 1회로 제한한다. 승인 없이 실제 provider 사용량을 발생시키지 않는다.
 - [ ] **P2** Android Chromium PWA 실기기 검증
-  - [x] 기존 `project_id`, owner-only 접근, production URL을 유지한 version 20이 기준선이다.
+  - [x] 기존 `project_id`, owner-only 접근, production URL을 유지한 후속 runtime 배포가 완료됐다.
   - [x] 인증된 production에서 개인정보 링크의 클릭 이동과 Vinext RSC prefetch 오류 해소를 확인했다.
   - [x] production HTML의 manifest 링크와 `crossorigin="use-credentials"`를 확인했다. 비인증 manifest·아이콘 요청은 owner-only 경계에 따라 401이다.
   - [ ] 인증된 Android Chromium에서 manifest·192/512/maskable 아이콘의 실제 로드와 규격을 확인한다.
@@ -20,6 +20,7 @@
 
 - [ ] **P2** 네이티브 WebMCP 지원 host에서 discovery → 실제 호출 E2E
   - 도구 2개의 등록/실행/schema/Google 필드 제거는 deterministic browser contract shim으로 완료했다.
+  - 2026-10-01 production Codex browser의 두 도구 native discovery도 확인했다. 유효 입력의 실제 provider 실행은 미검증이다.
   - shim PASS를 네이티브 플랫폼 PASS로 취급하지 않는다. 실사용 provider 호출 비용을 먼저 확인한다.
 
 ## 측정 후 판단할 것

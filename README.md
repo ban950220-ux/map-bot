@@ -73,6 +73,8 @@ node scripts/check-nearby.mjs --live
 
 최근 검증 결과와 provider 정책에 따른 매장 주차 기능의 현재 상태는 `PROJECT_CONTEXT.md`에 기록합니다.
 
+2026-10-01 후속 runtime 안정화와 41개 acceptance suite가 기존 Sites에 배포됐습니다. v20은 rollback 기준으로 보존합니다. 배포 종결은 문서 commit까지 포함한 local/GitHub main, CI tested SHA, Sites production source SHA가 일치해야 하며, 실제 최신 version/SHA는 Sites 배포 metadata로 확인합니다. Production root 확인과 실제 provider 검색, native WebMCP discovery와 실행, desktop PWA asset 검사와 Android 설치는 각각 구분합니다.
+
 Web App manifest와 192/512/maskable 아이콘, credentialed manifest 연결은 production에서 확인됐다. 실제 Android Chromium의 아이콘 로드·앱 설치·standalone 실행·인증 흐름까지 확인해야 최종 완료입니다. installability만을 위한 service worker나 가짜 설치 prompt는 사용하지 않습니다.
 
 ## Project Documents

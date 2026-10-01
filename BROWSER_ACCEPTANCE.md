@@ -5,9 +5,9 @@
 - Canonical repository: `ban950220-ux/map-bot`, branch `main`.
 - Production v20 baseline commit: `41968b86a30c51e8406faf9c02fa66f83f0215ca`. The follow-up gate audit started from clean local/GitHub main `79d16967b378834e2938bd9c4fbe6f5e05bb884c`, which already contains the suite and minimal fixes; no reset was performed.
 - Existing Sites project: `appgprj_6aa13e471abc819193188a4999e314f6`.
-- Production: `https://my-drive-time-ban357.ban950220.chatgpt.site`; rollback point: version 19.
+- Production: `https://my-drive-time-ban357.ban950220.chatgpt.site`; release-closure rollback point: version 20 (version 19 also retained).
 - v20 live search/auth/map/PWA asset verification is the supplied, completed baseline. This suite does **not** rerun live providers or certify a new production deployment.
-- Test construction found a completed-partial-search resume bug and narrow-screen long-token clipping. The minimal fixes are in main after the baseline, not automatically deployed to Sites. Named results/progress accessibility labels are also added.
+- Test construction found a completed-partial-search resume bug and narrow-screen long-token clipping. These fixes and named results/progress labels were explicitly deployed in version 21 on 2026-10-01 from `80e7502a3cca2bcc28cf3fadd3bf3af574096169`. GitHub push alone never deploys Sites. Subsequent documentation-only publications must also pass same-SHA CI and preserve source alignment; authoritative current version/SHA comes from Sites metadata.
 
 ## Three separate validation layers
 
@@ -77,7 +77,7 @@ The responsive reduced-height viewport approximates keyboard space but does not 
 
 ## WebMCP limitation
 
-The test installs only `document.modelContext.registerTool` as a contract shim, then executes the app's real registered callbacks through the UI/API pipeline. Native browser/ChatGPT tool discovery and invocation are **NOT RUN — environment limitation**. Registering a legacy tool requires mounting its tab. Do not report the shim as native platform E2E.
+The test installs only `document.modelContext.registerTool` as a contract shim, then executes the app's real registered callbacks through the UI/API pipeline. This suite does not test native browser/ChatGPT invocation. Native discovery of both tools was separately observed in the authenticated production Codex browser on 2026-10-01; valid-input/provider execution remains NOT RUN pending paid-use consent. Registering a legacy tool requires mounting its tab. Do not report the shim or discovery alone as full native platform E2E.
 
 ## Artifacts and CI
 
@@ -87,8 +87,8 @@ Offline CI runs on standard Ubuntu/Node 22 with no secrets and no live provider 
 
 ## Manual device and publication gates
 
-See `ANDROID_ACCEPTANCE.md`. Production remains v20 until a separately approved existing-Site update. A local build or mocked authentication test cannot mark production/PWA installation verified.
+See `ANDROID_ACCEPTANCE.md`. The separately authorized existing-Site runtime update succeeded as v21; rollback v20 remains available. Production root/legacy UI and anonymous 401 boundaries were checked separately. Live provider smoke requires its own cost approval. A local build or mocked authentication test cannot mark production/PWA installation verified.
 
 ## Recorded local validation
 
-2026-09-30 final gate audit: build, TypeScript, lint and offline workerd regression PASS. Windows Chromium / Node 24: **41 cases × 3 consecutive runs = 123 PASS**, zero retries, approximately 3.4 minutes, using `npm run test:browser:repeat`. The existing esbuild-based mock script required unsandboxed local execution because Windows sandbox denied parent-directory traversal; that run remained entirely mocked and passed. Previous 32-case Node 22 clean-install CI succeeded; the follow-up commit must independently pass the same GitHub Offline CI gate. No production deployment or live provider calls were performed.
+2026-09-30 final gate audit: build, TypeScript, lint and offline workerd regression PASS. Windows Chromium / Node 24: **41 cases × 3 consecutive runs = 123 PASS**, zero retries, approximately 3.4 minutes, using `npm run test:browser:repeat`. The existing esbuild-based mock script required unsandboxed local execution because Windows sandbox denied parent-directory traversal; that run remained entirely mocked and passed. `80e7502` passed all Node 22 CI stages in [run 36712283943](https://github.com/ban950220-ux/map-bot/actions/runs/36712283943). The 2026-10-01 pre-deployment gate repeated fresh build, TypeScript, lint, offline regression and **41/41 browser PASS** (1.2 minutes). Every later source commit still requires its own CI before publication. No real provider calls are made by this suite.

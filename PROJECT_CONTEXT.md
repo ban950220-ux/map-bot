@@ -15,20 +15,23 @@
 - 중단 시 완료된 결과를 sessionStorage checkpoint에 보존하고 30분 안에는 남은 후보부터 재개할 수 있다.
 - 지도 SDK 초기화·overlay 표시 실패는 지도 영역의 오류로 격리되어 장소 목록과 경로 비교를 중단시키지 않는다. 지도는 첫 경로 결과가 나온 뒤 초기화한다.
 - OpenAI Sites 프로젝트가 등록되어 있고 `.openai/hosting.json`에 기존 `project_id`가 있다. D1/R2는 비활성화 상태다.
-- Production 안정 baseline은 version **20**, commit `41968b86a30c51e8406faf9c02fa66f83f0215ca`다. 작업 시작 시 local/GitHub main의 일치를 확인했다. 기존 Sites project는 `appgprj_6aa13e471abc819193188a4999e314f6`, rollback point는 version 19다.
-- 2026-09-29 감사 안정화 변경(Google Places active enrichment/export 제거, resume identity, 상호명 관련도, 결과 우선 UI, stale 안내, NAVER quota/throttle 구분)은 v20 배포 완료 기준선에 포함된다. 사용자가 제공한 v20 검증 기록은 owner-only/auth, 일반/브랜드/주차 검색, ETA/거리, Dynamic Map, 390/1200px, PWA assets PASS와 console error 0이다. 이번 작업에서는 live provider/production을 재검사하지 않았다.
+- Production v20 / `41968b86a30c51e8406faf9c02fa66f83f0215ca`는 과거 acceptance 기준선이다. 2026-10-01 기존 Sites project `appgprj_6aa13e471abc819193188a4999e314f6`에 후속 runtime 수정과 suite를 포함한 `80e7502a3cca2bcc28cf3fadd3bf3af574096169`를 version **21**로 배포했다(`succeeded`, 03:44:50 UTC). 정상 rollback 기준은 **v20**이며 v19도 보존한다.
+- 배포 기록은 특정 문서 commit의 SHA를 문서 자체에 하드코딩하지 않는다. 최종 publication의 version/source SHA는 Sites saved-version 및 succeeded deployment metadata를 기준으로 하고, 문서 동기화 commit까지 local main = GitHub main = CI tested SHA = production source가 일치해야 release closure로 판정한다. GitHub push만으로 Sites는 갱신되지 않는다.
+- 2026-09-29 감사 안정화 변경(Google Places active enrichment/export 제거, resume identity, 상호명 관련도, 결과 우선 UI, stale 안내, NAVER quota/throttle 구분)은 v20 배포 완료 기준선에 포함된다. 사용자가 제공한 v20 검증 기록은 owner-only/auth, 일반/브랜드/주차 검색, ETA/거리, Dynamic Map, 390/1200px, PWA assets PASS와 console error 0이다. 2026-09-30 suite 구축에서는 live provider/production을 재검사하지 않았으며 2026-10-01 배포 확인과 구분한다.
 - `ARCHITECTURE.md`에 PII 없는 observability allowlist, provider 호출 상한, retry 판단 기준을 기록했다. 운영 logging과 자동 retry는 retention·latency·failure rate를 측정하기 전에는 추가하지 않는다.
-- 2026-09-30 최종 로컬 build, TypeScript, ESLint, mock workerd 회귀가 PASS이며 browser 41개 case를 retry 없이 3회 반복해 **123/123 PASS**(약 3.4분)를 확인했다. 로컬은 Node 24다. 기존 32개 suite의 Node 22 clean-install CI는 성공했고, 보강 commit도 동일 Offline CI를 통과해야 한다.
+- 2026-09-30 browser 41개 case를 retry 없이 3회 반복해 **123/123 PASS**를 확인했다. 2026-10-01 release gate에서도 fresh build, TypeScript, ESLint, mock workerd 회귀와 browser **41/41 PASS**를 다시 확인했다(로컬 Node 24). `80e7502`의 Node 22 clean-install Offline CI도 [run 36712283943](https://github.com/ban950220-ux/map-bot/actions/runs/36712283943)에서 전체 PASS했다. 후속 문서 commit도 독립된 same-SHA CI를 요구한다.
 - `tests/browser`의 Playwright + 실제 빌드 Worker/API + mock upstream acceptance는 41개 case로 보강됐다. 8개 mandatory gate, 핵심 A–M, CSV, WebMCP contract, legacy, GPS fallback, PWA, 정확한 5개 viewport를 다룬다. 실제 provider 호출과 Google active 호출은 0이어야 하며 retry 없이 반복한다. 상세 구조/한계는 `BROWSER_ACCEPTANCE.md`에 기록했다.
 - 후속 gate 감사는 local/GitHub main `79d16967b378834e2938bd9c4fbe6f5e05bb884c`에서 시작했다. 주소·x·y·query·radius·count·expand identity, POI/route 두 단계의 late-response 전체 상태, 18초 실제 timeout, explicit Google zero-call 및 console.error 검사를 추가했다. 이번 보강은 test/config/docs만 변경하며 application runtime은 변경하지 않는다.
 - Failure artifact는 synthetic screenshot과 header-free allowlist summary만 사용한다. Cookie/auth header가 남을 수 있는 raw trace/HAR는 비활성화하고 임의 console text는 고정된 오류 분류로 대체한다.
-- Suite가 완전히 시도된 부분 실패를 완료로 저장해 재개 버튼이 사라지는 P1 버그를 재현했다. 성공 후보 수로 완료를 판정하고 실패 후보만 재시도하도록 최소 수정했다. 360/390px 긴 영문 상호명 줄바꿈과 결과/progress 접근성 이름도 보완했다. 이 후속 runtime 수정은 **production에 배포하지 않았다**.
+- Suite가 완전히 시도된 부분 실패를 완료로 저장해 재개 버튼이 사라지는 P1 버그를 재현했다. `lib/nearby-client.ts`의 성공 후보 수 기준 완료 판정과 `components/NearbyExplorer.tsx`의 recovery 복구를 E/F·G/H·L regression으로 보호한다. `app/lovable-map.css`의 긴 문자열 wrapping 및 결과/progress 접근성도 5개 viewport/a11y regression으로 보호한다. `79d1696`의 이 수정은 main ancestry와 **production v21 source에 포함**된다.
+- v21 배포 후 기존 owner-authenticated Codex browser에서 root 새로고침, 새 결과 region label, 빈 출발지, legacy 56개 매장 화면과 두 WebMCP 도구의 native 등록을 확인했다. 익명 root/API/manifest/icon은 401이다. access policy revision 1(custom, owner만 허용, group/외부 방문자 없음), runtime env revision 18, D1/R2 null을 유지했다.
+- 이번 release의 실제 Kakao/NAVER 검색 smoke와 native WebMCP의 유효 입력→provider 실행은 별도 과금 가능성 승인 전에는 **NOT RUN**이다. 이미 열린 과거 검색 결과를 새 배포의 live PASS로 재사용하지 않는다. Google host/key의 active reference는 배포 bundle에서 0이며 일반·브랜드·주차의 zero-call, CSV/WebMCP sanitizer, 비활성 store-parking 410은 same-source mock acceptance로 확인한다. 기존 Google secret 설정은 변경하지 않았으며 설정 존재와 active 사용을 구분한다.
 - GitHub Actions `Offline CI`는 Node 22 clean install, build, TypeScript, mock 지도 회귀, lint, Chromium browser acceptance를 실행한다. Sites 배포와 별개이며 production secret을 사용하지 않는다.
 - 2026-09-18 production version 18에는 Vinext RSC prefetch 오류를 피하는 native 내부 링크, precise-location 기본값을 제거한 빈 출발지 UI, `가까운 한 끼` 전용 Web App manifest, 192/512 PNG 아이콘, maskable 아이콘이 배포되어 있다. owner-only 인증이 필요한 manifest를 브라우저가 credential과 함께 요청하도록 `crossorigin="use-credentials"`를 적용했다.
-- 과거 기록: 2026-09-14의 version 15에서는 Google 매장 주차 보강도 검증했으나, 이 흐름은 현재 v20에 적용되지 않는다. Google은 현재 active flow에서 disabled다.
+- 과거 기록: 2026-09-14의 version 15에서는 Google 매장 주차 보강도 검증했으나, 이 흐름은 v20 이후에 적용되지 않는다. Google은 현재 active flow에서 disabled다.
 - 2026-09-18 owner-only production 읽기 전용 smoke test에서 인증된 검색 화면과 provider 연결 상태, WebMCP 도구 등록, 개인정보 링크의 실제 클릭 이동, manifest 링크와 `use-credentials` 속성을 확인했다. version 18 배포 후 인증된 `/`와 manifest·192/512/maskable 아이콘은 모두 200이고 제거한 개인 출발지가 HTML에 없으며, 비인증 `/`와 manifest 요청은 401로 인증 경계를 유지한다.
 - owner-only browser smoke test에서 360/390/430/768/1200px의 horizontal overflow가 없고 목록이 지도보다 먼저 노출되는 것을 확인했다. 부분 실패·중단·재개와 GPS 거부는 regression fixture로 확인했으며 실제 기기 GPS는 아직 미검증이다.
-- 두 WebMCP 도구의 등록·실제 callback→API 실행은 browser contract shim으로 검증한다. 네이티브 ChatGPT/browser의 discovery·호출 E2E는 **NOT RUN — environment limitation**이며 shim 통과와 구분한다.
+- 두 WebMCP 도구의 등록·실제 callback→API 실행은 browser contract shim으로 검증한다. 2026-10-01 Codex production browser에서는 네이티브 discovery까지 확인했다. 유효 입력을 이용한 native provider 호출 E2E는 별도 live 비용 승인 없이는 실행하지 않으며 shim 통과와 구분한다.
 - production URL은 `https://my-drive-time-ban357.ban950220.chatgpt.site`이며 owner-only 접근을 유지한다.
 - 이전 version 18의 Google active flow 배포 gate는 v20으로 해소됐다. Android Chromium 실제 설치·standalone·GPS는 미검증이며 `ANDROID_ACCEPTANCE.md`의 checklist를 따른다. 현재 production의 owner-only/access/hosting binding은 변경하지 않았다.
 - canonical Git remote는 `https://github.com/ban950220-ux/map-bot.git`이며 기본 개발 branch는 `main`이다. 2026-09-18 GitHub 연결 메타데이터는 repository visibility를 `public`으로 반환하므로, owner-only Sites 접근과 source repository 공개범위를 동일한 것으로 간주하지 않는다. 현재 source에서는 개인 precise-location 기본값을 주변 탐색·legacy UI와 live 진단 fixture에서 제거했으며 UI 출발지는 빈 값에서 시작한다. 이전 로컬 checkout remote는 `legacy-origin`으로 보존한다.
@@ -90,6 +93,6 @@
 - GitHub repository visibility가 현재 `public`으로 확인되지만 기존 프로젝트 문서는 `private`을 전제로 했다. 과거 Git history에는 현재 source에서 제거된 개인 기본값이 남아 있을 수 있으며, history rewrite/force push 또는 repository visibility 변경은 별도 명시적 결정 없이는 수행하지 않는다. 코드상 secret은 server-only 경계를 유지하되, source repository 공개범위 자체는 별도 명시적 결정 없이 변경하지 않는다.
 - Google Places Content를 non-Google map과 함께 표시하거나 CSV/WebMCP로 export하지 않도록 active enrichment를 비활성화했다. 정책에 맞는 별도 UI와 비용 범위가 결정되기 전에는 재활성화하지 않는다.
 - PK6 인근 주차장 조회는 최대 15개와 500m local matching이므로 검색 영역의 모든 주차장을 보장하지 않는다.
-- 실제 기기 GPS 권한 허용과 비로그인 브라우저의 화면 응답은 자동화 환경에서 직접 확인하지 않았다. GPS 거부 및 API 인증 차단은 regression fixture로 검증한다.
+- 실제 기기 GPS 권한 허용은 미검증이다. GPS 거부 및 API 인증 차단은 regression fixture로 검증하며, production 익명 root/보호 API의 401은 2026-10-01 직접 HTTP 요청으로 재확인했다.
 - 캐시는 isolate-local이므로 인스턴스 간 공유, 지속성, 전역 rate limiting을 제공하지 않는다.
 - 200 km 검색도 Kakao가 반환한 최대 45개 POI 중 필터된 최대 30개만 비교하므로 전역 최적을 보장하지 않는다.
