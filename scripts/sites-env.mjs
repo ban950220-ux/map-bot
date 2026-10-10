@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 export const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const runtimeRoot = process.env.SITES_RUNTIME_ROOT || path.join(projectRoot, ".sites-runtime");
 
+// Wrangler also creates a global config directory even in --local mode.
+// Cloud HOME may be read-only; keep that tool state within the checkout.
+process.env.XDG_CONFIG_HOME ||= path.join(runtimeRoot, "config");
 process.env.CLOUDFLARE_CF_FETCH_ENABLED ||= "false";
 process.env.WRANGLER_SEND_METRICS ||= "false";
 process.env.WRANGLER_WRITE_LOGS ||= "false";

@@ -7,6 +7,11 @@ if (!process.env.npm_execpath) {
   throw new Error("Run this installer with npm run install:ci.");
 }
 
+// Fresh cloud shells may expose a read-only or absent HOME. Keep npm's cache
+// writable without changing HOME, permissions or registry. npm run injects its
+// default npm_config_cache, so ||= would retain the unwritable home cache.
+process.env.npm_config_cache = process.env.MAP_NPM_CACHE || path.join(projectRoot, ".sites-runtime", "npm-cache");
+
 if (![
   "SHARP_IGNORE_GLOBAL_LIBVIPS",
   "SHARP_FORCE_GLOBAL_LIBVIPS",
