@@ -141,4 +141,24 @@ Initial `install:ci` failed with home-cache ENOENT; the fixed command installed
 `.config/.wrangler`; project-local XDG config addresses that separate failure.
 The registry was reachable. Playwright Chromium 153 / build 1243 download returned
 403 `Domain forbidden`; the image's Chromium 151.0.7922.173 was used explicitly.
-Final gate results are recorded with the work-branch validation report.
+
+Final results on work branch `cloud/map-bootstrap-smoke`:
+
+| Gate | Result |
+| --- | --- |
+| Fresh cloud shell and platform-provided Git checkout | PASS |
+| Fixed install and repeat install | PASS, 679 packages |
+| Build / TypeScript / lint / offline workerd regression | PASS |
+| Secret-free dev and built Worker smoke | PASS: each root 200, anonymous API 401 |
+| Browser mock suite, installed Chromium 151 | 123/123 PASS (41 × 3), zero retries, 4.1 min |
+| Separate clean Git clone of code commit `dcda354` | PASS: fresh install, build, typecheck, lint, offline regression and dev/start smoke |
+| Playwright-pinned Chromium 153 download and execution | BLOCKED by CDN 403; not certified by fallback results |
+| Live providers / production / native WebMCP / Android | NOT RUN |
+
+The clean clone had its own initially empty dependency and tool-cache directories.
+No dependency versions, application runtime, provider policy, auth, hosted project,
+database or network security settings changed. Changes were committed locally on
+the work branch; no main merge or deployment was performed. The platform's saved
+environment settings were not edited through this checkout; use the setup command
+above when configuring that environment. Success here does not diagnose BANSIGHT
+or guarantee that the platform can never fail before exposing a shell.
