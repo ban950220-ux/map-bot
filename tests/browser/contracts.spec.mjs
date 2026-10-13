@@ -1,6 +1,34 @@
 import { test, expect, search, complete, checkpoint } from './fixtures.mjs';
 import { ORIGIN, OTHER_ORIGIN, docs, gate } from './upstream.mjs';
 
+test('NAVER directions link retains searched origin after edits and uses the next search origin', async ({ app: page, harness: h }) => {
+  await search(page); await complete(page);
+  const link = page.locator('.place-card').first().getByRole('link', { name: '네이버 길찾기 열기' });
+  const first = await link.getAttribute('href');
+  const destination = await page.locator('.place-card').first().locator('h3').textContent();
+  expect(first).toMatch(/^https:\/\/map\.naver\.com\/p\/directions\//);
+  expect(first).toContain(`${encodeURIComponent(ORIGIN.address)},,ADDRESS_POI`);
+  expect(first).toContain(`${encodeURIComponent(destination)},,ADDRESS_POI`);
+  const before = h.state.calls.length;
+  await page.getByLabel('출발지', { exact: true }).fill(OTHER_ORIGIN.address);
+  await expect(page.getByText(/아래 내용은 이전 조건의 결과/)).toBeVisible();
+  expect(await link.getAttribute('href')).toBe(first);
+  expect(h.state.calls.length).toBe(before);
+  await page.getByRole('button', { name: '주변 장소 비교', exact: true }).click();
+  await complete(page);
+  const second = await link.getAttribute('href');
+  expect(second).toContain(`${encodeURIComponent(OTHER_ORIGIN.address)},,ADDRESS_POI`);
+  expect(second).not.toBe(first);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 15; Pixel 8)' }));
+  await page.reload();
+  const appLink = page.locator('.place-card').first().getByRole('link', { name: '네이버 앱에서 길찾기' });
+  await expect(appLink).toBeVisible();
+  await expect(appLink).toHaveAttribute('href', /^intent:\/\/route\/car\?/);
+  expect(await appLink.getAttribute('href')).toContain(`sname=${encodeURIComponent(OTHER_ORIGIN.address)}`);
+  await expect(page.locator('.place-card').first().getByRole('link', { name: '네이버 길찾기 열기' })).toHaveAttribute('href', /^https:\/\/map\.naver\.com\/p\/directions\//);
+  expect(h.state.blocked).toEqual([]);
+});
+
 test('WebMCP contract shim executes registered nearby and legacy tools through real APIs', async ({ app: page, harness: h }) => {
   await expect.poll(() => page.evaluate(() => Object.keys(window.__testTools))).toContain('compare_nearby_places');
   const result = await page.evaluate(address => window.__testTools.compare_nearby_places.execute({ address, query: '주차 가능한 카페', expand: false }), ORIGIN.address);

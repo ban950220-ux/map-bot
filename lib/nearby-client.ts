@@ -1,7 +1,7 @@
 import { isOriginSelection, type OriginCandidate, type OriginSelection, type Point } from "./types";
 import type { DestinationCandidate, PlaceSearchResult, SortMode } from "@/services/maps/types";
 export type NearbyQuery = { address: string; location?: Point; query: string; radius: number; count: number; expand: boolean; sort?: SortMode };
-export type NearbySnapshot = { requestIdentity: string; origin: Point; search: PlaceSearchResult; query: string; candidates: DestinationCandidate[]; completed: boolean };
+export type NearbySnapshot = { requestIdentity: string; origin: Point; originName?: string; search: PlaceSearchResult; query: string; candidates: DestinationCandidate[]; completed: boolean };
 export type NearbyProgress = { phase: string; done: number; total: number; snapshot?: NearbySnapshot };
 export const successfulRouteCount = (snapshot: NearbySnapshot) => snapshot.candidates.filter(candidate => candidate.route && !candidate.routeError).length;
 export const hasFatalRouteError = (snapshot: NearbySnapshot) => snapshot.candidates.some(candidate => candidate.routeErrorFatal);
@@ -38,7 +38,7 @@ export async function runNearbyComparison(input: NearbyQuery, signal: AbortSigna
     }
     update({ phase: "주변 장소 후보 검색 중", done: 0, total: 0 });
     search = await post<PlaceSearchResult>("/api/places", { origin, query: input.query.trim(), radius: input.radius, count: input.count, expand: input.expand }, signal);
-    snapshot = { requestIdentity, origin, search, query: input.query.trim(), candidates: [], completed: false };
+    snapshot = { requestIdentity, origin, originName: input.address.trim(), search, query: input.query.trim(), candidates: [], completed: false };
   }
   const completedIds = new Set(snapshot.candidates.filter(candidate => candidate.route && !candidate.routeError).map(candidate => candidate.id));
   const pending = search.candidates.filter(candidate => !completedIds.has(candidate.id));
