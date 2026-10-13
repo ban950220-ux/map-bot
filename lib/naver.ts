@@ -24,8 +24,7 @@ export class MapsBusyError extends MapsError {
 const UNCERTAIN_ROUTE_LEASE_MS = 30000;
 const directionLeases = new Map<number, { startedAt: number; uncertainUntil?: number }>();
 let nextLease = 0;
-async function withDirectionsSlot<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-  signal?.throwIfAborted();
+export function availableDirectionsSlots() {
   const now = Date.now();
   for (const [id, lease] of directionLeases) {
     // A canceled workerd context can also lose both its abort callback and
@@ -34,7 +33,12 @@ async function withDirectionsSlot<T>(task: () => Promise<T>, signal?: AbortSigna
     if (lease.uncertainUntil === undefined && now - lease.startedAt >= 20000) lease.uncertainUntil = now + UNCERTAIN_ROUTE_LEASE_MS;
     if (lease.uncertainUntil !== undefined && lease.uncertainUntil <= now) directionLeases.delete(id);
   }
-  if (directionLeases.size >= 4) throw new MapsBusyError();
+  return Math.max(0, 4 - directionLeases.size);
+}
+async function withDirectionsSlot<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
+  if (!availableDirectionsSlots()) throw new MapsBusyError();
+  const now = Date.now();
   const id = ++nextLease;
   const lease: { startedAt: number; uncertainUntil?: number } = { startedAt: now };
   directionLeases.set(id, lease);

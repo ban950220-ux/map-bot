@@ -113,6 +113,30 @@ try {
   console.log('PASS nearby busy recovery: stops one batch, preserves resume, completes on explicit retry');
 } finally { await recoveryHarness.close(); }
 
+const timeoutHarness = await createHarness();
+try {
+  const hold = gate(); timeoutHarness.state.holdRoutes = { ids: [3], gate: hold };
+  const candidates = docs.map(place => ({ id: `kakao:${place.id}`, name: place.place_name, address: place.road_address_name, latitude: Number(place.y), longitude: Number(place.x), category: place.category_name, source: 'kakao-local' }));
+  const input = { address: ORIGIN.address, location: ORIGIN, query: '카페', radius: 5000, count: 5, expand: false };
+  const search = { candidates, requestedRadius: 5000, searchedRadius: 5000, expanded: false, cached: false, limited: false, checkedAt: new Date().toISOString(), warnings: [] };
+  const post = async (path, body, signal) => {
+    if (path === '/api/places') return search;
+    assert.equal(path, '/api/nearby-routes');
+    const response = await fetch(timeoutHarness.url + path, { method: 'POST', headers: { cookie: 'fixture-owner=1', 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
+    assert.equal(response.status, 200); return response.json();
+  };
+  try {
+    const result = await runNearbyComparison(input, new AbortController().signal, () => {}, post);
+    assert.equal(result.completed, false);
+    assert.equal(result.candidates.filter(candidate => candidate.route).length, 14);
+    assert.equal(result.candidates.filter(candidate => candidate.routeError).length, 1);
+    assert.equal(result.candidates.filter(candidate => candidate.routeErrorBusy).length, 0);
+    assert.deepEqual(timeoutHarness.api.filter(event => event.path === '/api/nearby-routes').map(event => event.body.candidates.length), [4, 4, 4, 3]);
+    assert.equal(timeoutHarness.state.peak, 4);
+    console.log('PASS one timeout: other 14 routes finish using remaining slots without busy');
+  } finally { hold.release(); timeoutHarness.state.holdRoutes = null; }
+} finally { await timeoutHarness.close(); }
+
 const releasedHarness = await createHarness();
 try {
   const candidates = docs.slice(0, 4).map(place => ({ id: `kakao:${place.id}`, name: place.place_name, address: place.road_address_name, latitude: Number(place.y), longitude: Number(place.x), category: place.category_name, source: 'kakao-local' }));

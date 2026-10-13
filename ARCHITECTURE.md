@@ -64,7 +64,7 @@ flowchart LR
 4. `/api/places`가 Kakao Local을 호출한다. keyword는 관련도와 직선거리를 함께 고려하며 이름이 검색어와 직접 일치하는 후보가 있으면 일반 업종 후보를 최종 route pool에서 제외한다. category는 이름 일치를 강제하지 않고 거리순을 사용한다. 20 km 초과는 구면 원을 포함하는 rectangle을 보내고 Haversine으로 원 밖 결과를 제거한다.
 5. 주차 조건이면 후보 영역의 Kakao PK6를 한 번 조회해 각 후보 500m 안의 최근접 주차장을 `nearbyParking`으로 연결한다.
 6. id 및 이름/좌표 identity로 중복을 제거하고 후보를 최대 30개 유지한다.
-7. client가 후보를 4개씩 `/api/nearby-routes`에 보낸다. 서버도 요청당 최대 4개 worker를 사용한다. 한 browser page에서는 주변·legacy 비교를 동시에 시작하지 않고 탭 전환만으로 진행 중인 결과를 버리지 않는다. 서로 다른 요청이 겹치면 한 Worker isolate 안의 Directions 4개 상한을 넘는 호출은 즉시 503 busy로 거절한다. Busy는 인증·이용 한도 fatal과 구분해 이번 주변 batch를 멈추고 명시적 이어서 조회를 허용한다. 여러 isolate에 걸친 전역 한도는 아니다.
+7. client가 후보를 4개씩 `/api/nearby-routes`에 보낸다. 서버는 요청당 최대 4개 worker를 사용하되, timeout으로 보류된 slot이 있으면 남은 빈 slot 수만큼만 병렬 시작하고 batch의 나머지 후보를 순차 처리한다. 한 browser page에서는 주변·legacy 비교를 동시에 시작하지 않고 탭 전환만으로 진행 중인 결과를 버리지 않는다. 서로 다른 요청이 겹치면 한 Worker isolate 안의 Directions 4개 상한을 넘는 호출은 즉시 503 busy로 거절한다. Busy는 인증·이용 한도 fatal과 구분해 이번 주변 batch를 멈추고 명시적 이어서 조회를 허용한다. 여러 isolate에 걸친 전역 한도는 아니다.
 8. 개별 경로 실패는 해당 후보의 `routeError`로 반환한다. fatal auth/quota 오류는 이후 후보를 중단하되 이미 성공한 결과는 보존한다.
 9. 성공 후보를 교통 ETA, 도로거리, 검색 관련도 또는 `0.8 * normalized ETA + 0.2 * normalized distance`로 정렬한다.
 10. `storeParking`은 `unknown`으로 유지한다. Kakao PK6의 `nearbyParking`을 매장 자체 주차로 승격하지 않는다.

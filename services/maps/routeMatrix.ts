@@ -1,5 +1,5 @@
 import type { Point } from "@/lib/types";
-import { MapsBusyError, MapsError } from "@/lib/naver";
+import { availableDirectionsSlots, MapsBusyError, MapsError } from "@/lib/naver";
 import { naverRouting } from "./routing";
 import type { DestinationCandidate, RoutingProvider } from "./types";
 // NAVER's multi-goal parameter returns ONE chosen goal, not a 1×N matrix.
@@ -21,6 +21,10 @@ export async function calculateRouteMatrix(origin: Point, candidates: Destinatio
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, candidates.length) }, worker));
+  // A timed-out call can retain an uncertainty slot. Use the remaining slots
+  // sequentially within this batch instead of turning its fourth candidate
+  // into a recoverable busy failure. A separate request may still race us.
+  const concurrency = provider === naverRouting ? Math.max(1, availableDirectionsSlots()) : 4;
+  await Promise.all(Array.from({ length: Math.min(concurrency, candidates.length) }, worker));
   return results;
 }
