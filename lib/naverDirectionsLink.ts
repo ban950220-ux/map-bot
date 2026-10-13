@@ -12,8 +12,9 @@ function routeQuery(origin: Point, originName: string, destination: Destination,
     + `&appname=${encodeURIComponent(appname)}`;
 }
 
-// NAVER's documented mobile-web intent opens the Maps app when installed and
-// the Play Store otherwise. It requires a user-initiated navigation.
+// NAVER's documented mobile-web intent opens the Maps app in supporting
+// Android browsers. An explicit HTTPS web link remains available for WebViews
+// that do not handle intents and for devices without the app.
 export function naverAndroidDirectionsUrl(origin: Point, originName: string, destination: Destination, appname: string) {
   return `intent://route/car?${routeQuery(origin, originName, destination, appname)}`
     + "#Intent;scheme=nmap;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=com.nhn.android.nmap;end";

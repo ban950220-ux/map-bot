@@ -19,15 +19,13 @@ test('NAVER directions link retains searched origin after edits and uses the nex
   const second = await link.getAttribute('href');
   expect(second).toContain(`${encodeURIComponent(OTHER_ORIGIN.address)},,ADDRESS_POI`);
   expect(second).not.toBe(first);
-  const mobile = await link.evaluate(element => {
-    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 15; Pixel 8)' });
-    element.addEventListener('click', event => event.preventDefault(), { once: true });
-    element.click();
-    return { href: element.getAttribute('href'), target: element.target };
-  });
-  expect(mobile.href).toContain('intent://route/car?');
-  expect(mobile.href).toContain(`sname=${encodeURIComponent(OTHER_ORIGIN.address)}`);
-  expect(mobile.target).toBe('_self');
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Linux; Android 15; Pixel 8)' }));
+  await page.reload();
+  const appLink = page.locator('.place-card').first().getByRole('link', { name: '네이버 앱에서 길찾기' });
+  await expect(appLink).toBeVisible();
+  await expect(appLink).toHaveAttribute('href', /^intent:\/\/route\/car\?/);
+  expect(await appLink.getAttribute('href')).toContain(`sname=${encodeURIComponent(OTHER_ORIGIN.address)}`);
+  await expect(page.locator('.place-card').first().getByRole('link', { name: '네이버 길찾기 열기' })).toHaveAttribute('href', /^https:\/\/map\.naver\.com\/p\/directions\//);
   expect(h.state.blocked).toEqual([]);
 });
 
