@@ -32,6 +32,8 @@ jobs:
         run: node scripts/check-nearby.mjs
       - name: Run audit regressions
         run: npm run test:audit
+      - name: Check NAVER directions links
+        run: npm run test:directions
       - name: Lint
         run: npm run lint
       - name: Install Chromium and OS dependencies
