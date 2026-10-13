@@ -34,6 +34,8 @@ jobs:
         run: npm run test:audit
       - name: Lint
         run: npm run lint
+      - name: Smoke local dev and built Worker without secrets
+        run: npm run smoke:cloud
       - name: Install Chromium and OS dependencies
         run: npx playwright install --with-deps chromium
       - name: Run deterministic browser acceptance (no provider credentials)

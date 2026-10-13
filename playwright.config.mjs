@@ -12,6 +12,11 @@ export default defineConfig({
   outputDir: 'test-results',
   use: {
     browserName: 'chromium',
+    // Explicit cloud-image fallback when the pinned browser CDN is unavailable.
+    // CI keeps using the pinned Playwright browser unless this path is supplied.
+    ...(process.env.MAP_CHROMIUM_EXECUTABLE_PATH ? {
+      launchOptions: { executablePath: process.env.MAP_CHROMIUM_EXECUTABLE_PATH },
+    } : {}),
     headless: true,
     viewport: { width: 1200, height: 900 },
     locale: 'ko-KR',
