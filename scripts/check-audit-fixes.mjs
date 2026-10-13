@@ -113,6 +113,27 @@ try {
   console.log('PASS nearby busy recovery: stops one batch, preserves resume, completes on explicit retry');
 } finally { await recoveryHarness.close(); }
 
+const releasedHarness = await createHarness();
+try {
+  const candidates = docs.slice(0, 4).map(place => ({ id: `kakao:${place.id}`, name: place.place_name, address: place.road_address_name, latitude: Number(place.y), longitude: Number(place.x), category: place.category_name, source: 'kakao-local' }));
+  const hold = gate(); releasedHarness.state.holdRoutes = { ids: [1, 2, 3, 4], start: `${ORIGIN.x},${ORIGIN.y}`, gate: hold };
+  const post = (origin, signal) => fetch(releasedHarness.url + '/api/nearby-routes', { method: 'POST', headers: { cookie: 'fixture-owner=1', 'content-type': 'application/json' }, body: JSON.stringify({ origin, candidates }), signal });
+  try {
+    const controller = new AbortController();
+    const canceled = post(ORIGIN, controller.signal).catch(() => null);
+    for (let attempt = 0; attempt < 100 && releasedHarness.state.calls.filter(call => call.op === 'route').length < 4; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(releasedHarness.state.calls.filter(call => call.op === 'route').length, 4);
+    controller.abort(); await canceled;
+  } finally { hold.release(); releasedHarness.state.holdRoutes = null; }
+  for (let attempt = 0; attempt < 100 && releasedHarness.state.active > 0; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(releasedHarness.state.active, 0);
+  const resumed = await post(OTHER_ORIGIN);
+  const data = await resumed.json();
+  assert.equal(data.candidates.filter(candidate => candidate.route).length, 4);
+  assert.equal(releasedHarness.state.peak, 4);
+  console.log('PASS abort-and-release: explicit resume succeeds immediately after upstream completion');
+} finally { await releasedHarness.close(); }
+
 const abortHarness = await createHarness();
 try {
   const candidates = docs.slice(0, 4).map(place => ({ id: `kakao:${place.id}`, name: place.place_name, address: place.road_address_name, latitude: Number(place.y), longitude: Number(place.x), category: place.category_name, source: 'kakao-local' }));
@@ -131,10 +152,15 @@ try {
     assert.equal(abortHarness.state.peak, 4);
     assert.equal(abortHarness.state.calls.filter(call => call.op === 'route').length, 4);
     console.log('PASS late-abort guard: B is recoverably busy while A upstream remains held; peak 4');
+    await new Promise(resolve => setTimeout(resolve, 20500));
+    const stillHeld = await post(OTHER_ORIGIN);
+    const heldData = await stillHeld.json();
+    assert.equal(heldData.candidates.filter(candidate => candidate.routeErrorBusy).length, 4);
+    assert.equal(abortHarness.state.peak, 4);
+    console.log('PASS held-after-20s guard: uncertain A still occupies four slots');
   } finally { hold.release(); abortHarness.state.holdRoutes = null; }
-  // A canceled request context can abandon its finally block. Its bounded
-  // lease must expire before an explicit retry is allowed in this isolate.
-  await new Promise(resolve => setTimeout(resolve, 20100));
+  // Recovery is bounded even if a canceled request context never resumes.
+  await new Promise(resolve => setTimeout(resolve, 30100));
   const retried = await post(OTHER_ORIGIN);
   const retryData = await retried.json();
   assert.equal(retried.status, 200);

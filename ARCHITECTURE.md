@@ -100,7 +100,7 @@ flowchart LR
 
 측정 평균이 아니라 코드상 요청 구조다. 일반 표시 개수 5도 후보 품질을 위해 최소 15곳을 라우팅하므로, 캐시 miss의 보통 경로는 NAVER geocode 1 + Kakao POI 1~3 + NAVER Directions 15, 즉 17~19건이다. 주차 조건은 Kakao PK6 1건이 추가된다. 장소명 fallback은 Kakao origin search 1건이 추가될 수 있다.
 
-반경을 1km부터 200km까지 모두 확대하고 각 반경에서 3페이지를 읽는 이론상 상한은 Kakao POI 27건이다. 여기에 NAVER geocode 1, 장소명 fallback 1, PK6 1, Directions 30을 더한 최대 60건이다. Category는 거리순 후보가 한도를 채우면 중단한다. Keyword는 뒤 페이지의 직접 이름 일치를 놓치지 않도록 직접 일치 후보가 한도를 채우거나 결과가 끝날 때까지 읽되 반경당 최대 3페이지에서 멈춘다. Kakao 확대/page는 순차다. Directions 동시성은 요청당 4이자 Worker isolate 안에서 공유 4이며, 상한을 넘는 별도 요청은 대기열에 넣지 않고 거절한다. 취소된 요청의 Worker 문맥이 더는 실행되지 않을 수 있어 그 호출의 slot은 시작 시점에서 최대 20초까지 보수적으로 점유한 것으로 간주한다. 여러 isolate의 총합을 제한하지 않는다. timeout은 Kakao 요청별 10초, NAVER 요청별 18초이며 전체 search deadline은 아직 없다. isolate-local cache는 geocode/POI 5분, route 45초일 뿐 shared cache나 global limiter가 아니다.
+반경을 1km부터 200km까지 모두 확대하고 각 반경에서 3페이지를 읽는 이론상 상한은 Kakao POI 27건이다. 여기에 NAVER geocode 1, 장소명 fallback 1, PK6 1, Directions 30을 더한 최대 60건이다. Category는 거리순 후보가 한도를 채우면 중단한다. Keyword는 뒤 페이지의 직접 이름 일치를 놓치지 않도록 직접 일치 후보가 한도를 채우거나 결과가 끝날 때까지 읽되 반경당 최대 3페이지에서 멈춘다. Kakao 확대/page는 순차다. Directions 동시성은 요청당 4이자 Worker isolate 안에서 관리하는 호출 4이며, 상한을 넘는 별도 요청은 대기열에 넣지 않고 거절한다. 이미 시작한 provider 작업은 UI 취소 후에도 `waitUntil`로 완료 처리를 이어가며 실제 응답 시 slot을 해제한다. NAVER의 18초 timeout 후 종료가 불확실하면 그 시점부터 30초 동안 slot을 더 보유한다. 취소된 Worker 문맥에서 timeout 처리까지 사라진 경우에는 시작 후 20초에 불확실 상태로 전환하고 30초 뒤 복구한다. 이 복구는 원격 provider 종료 확인이 아니므로 그 이후 실제 외부 동시 호출이 4개를 넘을 수 있으며, 엄격한 provider-wide 상한이 아니다. 여러 isolate의 총합도 제한하지 않는다. timeout은 Kakao 요청별 10초, NAVER 요청별 18초이며 전체 search deadline은 아직 없다. isolate-local cache는 geocode/POI 5분, route 45초일 뿐 shared cache나 global limiter가 아니다.
 
 ## Observability Specification
 
