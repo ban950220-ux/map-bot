@@ -1,5 +1,5 @@
 import type { Point } from "@/lib/types";
-import { MapsError } from "@/lib/naver";
+import { availableDirectionsSlots, MapsBusyError, MapsError } from "@/lib/naver";
 import { naverRouting } from "./routing";
 import type { DestinationCandidate, RoutingProvider } from "./types";
 // NAVER's multi-goal parameter returns ONE chosen goal, not a 1×N matrix.
@@ -7,19 +7,24 @@ import type { DestinationCandidate, RoutingProvider } from "./types";
 export async function calculateRouteMatrix(origin: Point, candidates: DestinationCandidate[], signal?: AbortSignal, provider: RoutingProvider = naverRouting) {
   if (provider.capabilities.matrix && provider.getRouteMatrix) return provider.getRouteMatrix(origin, candidates, signal);
   const results: DestinationCandidate[] = new Array(candidates.length);
-  let next = 0, stopReason: string | undefined;
+  let next = 0, stopReason: string | undefined, stopBusy = false;
   async function worker() {
     while (next < candidates.length) {
       const index = next++, candidate = candidates[index];
-      if (signal?.aborted || stopReason) { results[index] = { ...candidate, routeError: stopReason || "조회가 취소되었습니다." }; continue; }
+      if (signal?.aborted || stopReason) { results[index] = { ...candidate, routeError: stopReason || "조회가 취소되었습니다.", ...(stopBusy ? { routeErrorBusy: true } : {}) }; continue; }
       try { results[index] = await provider.getRoute(origin, candidate, signal); }
       catch (error) {
         const message = error instanceof MapsError ? error.message : "이 장소의 자동차 경로를 확인하지 못했습니다.";
-        results[index] = { ...candidate, routeError: message, routeErrorFatal: error instanceof MapsError && error.fatal };
-        if (error instanceof MapsError && error.fatal) stopReason = message;
+        const busy = error instanceof MapsBusyError;
+        results[index] = { ...candidate, routeError: message, routeErrorFatal: error instanceof MapsError && error.fatal, ...(busy ? { routeErrorBusy: true } : {}) };
+        if (busy || (error instanceof MapsError && error.fatal)) { stopReason = message; stopBusy = busy; }
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, candidates.length) }, worker));
+  // A timed-out call can retain an uncertainty slot. Use the remaining slots
+  // sequentially within this batch instead of turning its fourth candidate
+  // into a recoverable busy failure. A separate request may still race us.
+  const concurrency = provider === naverRouting ? Math.max(1, availableDirectionsSlots()) : 4;
+  await Promise.all(Array.from({ length: Math.min(concurrency, candidates.length) }, worker));
   return results;
 }

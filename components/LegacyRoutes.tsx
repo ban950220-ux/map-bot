@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import stores from "@/lib/stores.json";
 import { formatDuration, type CompareResponse, type Point, type RouteFailure, type RouteResult } from "@/lib/types";
 import { registerRouteTool } from "@/lib/webmcp";
+import { beginComparison } from "@/lib/comparisonCoordinator";
 
 type Query = { origin: string; mode: "stores" | "direct"; destination?: string };
 type Report = { origin: Point; mode: "stores" | "direct"; startedAt: string; completed: boolean };
@@ -54,6 +55,9 @@ export default function LegacyRoutes() {
   const run = useCallback(async (query: Query) => {
     if (active.current) throw new Error("진행 중인 조회가 끝난 뒤 다시 시도해 주세요.");
     if (!query.origin.trim() || (query.mode === "direct" && !query.destination?.trim())) throw new Error("출발지와 도착지 주소를 입력해 주세요.");
+    let endComparison: () => void;
+    try { endComparison = beginComparison(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "조회를 시작하지 못했습니다."); throw cause; }
     const controller = new AbortController();
     active.current = controller;
     setBusy(true); setError(""); setResults([]); setFailures([]); setProgress(0); setReport(null); setShowAll(false);
@@ -89,7 +93,7 @@ export default function LegacyRoutes() {
       const message = controller.signal.aborted ? "조회를 중단했습니다. 아래에는 중단 전까지 확인한 결과만 표시됩니다." : cause instanceof Error ? cause.message : "조회 중 문제가 발생했습니다.";
       setError(message); setPhase("조회 중단");
       throw new Error(message);
-    } finally { active.current = null; setBusy(false); }
+    } finally { endComparison(); active.current = null; setBusy(false); }
   }, []);
 
   useEffect(() => registerRouteTool(run), [run]);

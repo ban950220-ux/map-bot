@@ -136,24 +136,35 @@ for (const phase of ['places', 'routes']) test(`J Search A late ${phase} respons
     await expect(page.locator('.destination-marker')).toHaveCount(5);
   }
   await expect(page.getByLabel('어떤 장소를 찾으세요?', {exact:true})).toBeDisabled();
-  // The UI deliberately serializes searches. Abort A, start B while A's server response is still held.
+  // Abort A, then start B while A's upstream response is still held. Route
+  // slots remain occupied conservatively until the canceled call can settle.
   await page.getByRole('button', { name: '조회 중단', exact:true }).click();
   await expect(page.getByRole('button', {name:'주변 장소 비교',exact:true})).toBeEnabled();
-  await search(page, '검색B', OTHER_ORIGIN.address); await complete(page);
-  await expect(page.locator('.destination-marker')).toHaveCount(6);
-  await page.locator('.place-select').nth(1).click();
-  await expect(page.locator('.map-selection')).toContainText('검색B 14');
-  await expect(page.locator('[data-polyline]')).toHaveCount(1);
-  await expect(page.locator('.origin-marker')).toHaveAttribute('data-marker-position', JSON.stringify({ y: OTHER_ORIGIN.y, x: OTHER_ORIGIN.x }));
+  await search(page, '검색B', OTHER_ORIGIN.address);
+  if (phase === 'places') {
+    await complete(page);
+    await expect(page.locator('.destination-marker')).toHaveCount(6);
+    await page.locator('.place-select').nth(1).click();
+    await expect(page.locator('.map-selection')).toContainText('검색B 14');
+    await expect(page.locator('[data-polyline]')).toHaveCount(1);
+    await expect(page.locator('.origin-marker')).toHaveAttribute('data-marker-position', JSON.stringify({ y: OTHER_ORIGIN.y, x: OTHER_ORIGIN.x }));
+  } else {
+    await expect(page.locator('.nearby-results')).toHaveAttribute('aria-busy', 'false');
+    await expect(page.getByRole('button', { name: '중단 지점부터 이어서 조회' })).toBeVisible();
+    await expect(page.locator('.place-card')).toHaveCount(0);
+    expect(h.state.calls.filter(c => c.op === 'route')).toHaveLength(8);
+    expect(h.state.peak).toBe(4);
+  }
   const before = await comparisonState(page);
   expect(before.query).toBe('검색B'); expect(before.busy).toBe('false'); expect(before.error).toBeUndefined();
-  expect(before.checkpoint.progress.snapshot.completed).toBe(true);
+  expect(before.checkpoint.progress.snapshot.completed).toBe(phase === 'places');
+  if (phase === 'routes') expect(before.checkpoint.progress.snapshot.candidates.every(candidate => candidate.routeErrorBusy && !candidate.routeErrorFatal)).toBe(true);
   g.release(); h.state.holdPlaces = null; h.state.holdRoutes = null;
   if (phase === 'places') await expect.poll(() => h.state.placesFinished.includes('검색A')).toBe(true);
   else await expect.poll(() => h.state.active).toBe(0);
   await expect.poll(() => h.api.some(e => e.path === (phase === 'places' ? '/api/places' : '/api/nearby-routes') && e.aborted)).toBe(true);
   await expect(page.getByRole('heading', {name:'검색B 비교 결과'})).toBeVisible();
-  await expect(page.locator('.place-card').first()).toContainText('검색B');
+  if (phase === 'places') await expect(page.locator('.place-card').first()).toContainText('검색B');
   expect(await comparisonState(page)).toEqual(before);
 });
 

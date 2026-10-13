@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import type { Point, RouteResult } from "./types";
 
 type NaverResponse = {
@@ -9,6 +9,62 @@ type NaverResponse = {
 
 export class MapsError extends Error {
   constructor(message: string, public status = 502, public fatal = false) { super(message); }
+}
+export class MapsBusyError extends MapsError {
+  constructor() { super("다른 경로 조회가 진행 중입니다. 잠시 뒤 이어서 조회해 주세요.", 503); }
+}
+// Fail fast across simultaneous requests in one Worker isolate. Workerd does
+// not permit a promise created by one request to be resumed by another, so a
+// shared async queue would break request context isolation. This is not a
+// cross-isolate rate limiter.
+// Keep already-started provider work alive after the client leaves so its real
+// completion can release the slot. Only a provider timeout becomes uncertain.
+// A remote provider may still process after timeout; this is best-effort
+// isolate protection, not a strict external-provider concurrency bound.
+const UNCERTAIN_ROUTE_LEASE_MS = 30000;
+const directionLeases = new Map<number, { startedAt: number; uncertainUntil?: number }>();
+let nextLease = 0;
+export function availableDirectionsSlots() {
+  const now = Date.now();
+  for (const [id, lease] of directionLeases) {
+    // A canceled workerd context can also lose both its abort callback and
+    // provider timeout continuation. Treat a call that outlives the adapter's
+    // 18-second deadline plus margin as uncertain, then recover it later.
+    if (lease.uncertainUntil === undefined && now - lease.startedAt >= 20000) lease.uncertainUntil = now + UNCERTAIN_ROUTE_LEASE_MS;
+    if (lease.uncertainUntil !== undefined && lease.uncertainUntil <= now) directionLeases.delete(id);
+  }
+  return Math.max(0, 4 - directionLeases.size);
+}
+async function withDirectionsSlot<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
+  if (!availableDirectionsSlots()) throw new MapsBusyError();
+  const now = Date.now();
+  const id = ++nextLease;
+  const lease: { startedAt: number; uncertainUntil?: number } = { startedAt: now };
+  directionLeases.set(id, lease);
+  const markUncertain = () => { lease.uncertainUntil ??= Date.now() + UNCERTAIN_ROUTE_LEASE_MS; };
+  const provider = Promise.resolve().then(task).then(result => {
+    directionLeases.delete(id);
+    return result;
+  }, error => {
+    if (error instanceof MapsError && error.status === 504) markUncertain();
+    else directionLeases.delete(id);
+    throw error;
+  });
+  // Do not let a canceled client context abandon the provider completion.
+  waitUntil(provider.then(() => {}, () => {}));
+  if (!signal) return provider;
+  let onAbort: (() => void) | undefined;
+  const canceled = new Promise<never>((_, reject) => {
+    onAbort = () => reject(new MapsError("조회가 취소되었습니다.", 499));
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+  try {
+    return await Promise.race([provider, canceled]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
 }
 export function configured() {
   const vars = env as unknown as Record<string, string | undefined>;
@@ -60,7 +116,7 @@ export async function geocode(address: string, signal?: AbortSignal): Promise<Po
 }
 export async function driving(origin: Point, destination: Point, details: { id: number; brand: string; name: string; address: string }, signal?: AbortSignal, options: { option?: "traoptimal" | "trafast"; includePath?: boolean } = {}): Promise<RouteResult> {
   const option = options.option || "traoptimal";
-  const data = await naver("/map-direction/v1/driving", { start: `${origin.x},${origin.y}`, goal: `${destination.x},${destination.y}`, option, cartype: "1", lang: "ko" }, signal);
+  const data = await withDirectionsSlot(() => naver("/map-direction/v1/driving", { start: `${origin.x},${origin.y}`, goal: `${destination.x},${destination.y}`, option, cartype: "1", lang: "ko" }), signal);
   const route = data.route?.[option]?.[0];
   const summary = route?.summary;
   if (!summary || data.code !== 0) throw new MapsError("자동차 경로를 찾지 못했습니다. 출발지와 도착지가 같거나 도로로 연결되지 않았을 수 있습니다.", 422);
