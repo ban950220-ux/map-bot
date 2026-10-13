@@ -3,7 +3,7 @@ import { z } from "zod";
 import { MapsError } from "@/lib/naver";
 import type { OriginCandidate, Point } from "@/lib/types";
 import { TtlCache } from "./cache";
-import { filterCandidates, haversine, preferKeywordNameMatches, SEARCH_RADII } from "./ranking";
+import { filterCandidates, haversine, nameMatchesKeyword, preferKeywordNameMatches, SEARCH_RADII } from "./ranking";
 import type { DestinationCandidate, PlaceProvider, PlaceSearchResult } from "./types";
 import { parseSearchIntent } from "./searchIntent";
 const cache = new TtlCache<PlaceSearchResult>(300000, 64);
@@ -74,7 +74,8 @@ async function searchNearbyParkingLots(candidates: DestinationCandidate[], signa
     const url = new URL("https://dapi.kakao.com/v2/local/search/category.json");
     url.search = new URLSearchParams({ category_group_code: "PK6", x: String(bounds.center.x), y: String(bounds.center.y), rect: bounds.rect, sort: "distance", page: "1", size: "15" }).toString();
     const response = await fetch(url, { headers: { Authorization: `KakaoAK ${(env as unknown as Record<string, string>).KAKAO_REST_API_KEY}` }, redirect: "manual", signal: controller.signal });
-    if (!response.ok) throw new MapsError(`인근 주차장 검색에 실패했습니다 (HTTP ${response.status}).`, response.status === 429 ? 429 : 502);
+    if ([401, 403, 429].includes(response.status)) throw new MapsError(`인근 주차장 검색 권한 또는 이용 한도를 확인해 주세요 (HTTP ${response.status}).`, response.status === 429 ? 429 : 502, true);
+    if (!response.ok) throw new MapsError(`인근 주차장 검색에 실패했습니다 (HTTP ${response.status}).`);
     const result = responseSchema.parse(await response.json());
     const output = { lots: result.documents.map((p, index) => toCandidate(p, index)), limited: !result.meta.is_end };
     parkingCache.set(key, output); return output;
@@ -126,7 +127,11 @@ export const kakaoPlaces: PlaceProvider = {
         const filtered = filterCandidates(items, origin, radius, limit, category ? "distance" : "balanced", normalized);
         const selected = category ? filtered : preferKeywordNameMatches(filtered, normalized);
         limited = result.meta.total_count > selected.length;
-        if (result.meta.is_end || selected.length >= limit || page === 3) break;
+        // Category results are distance ordered. Keyword pages may contain a
+        // direct name match after a full page of generic matches, so inspect
+        // at most three pages until enough direct matches have been seen.
+        const directMatches = selected.filter(candidate => nameMatchesKeyword(candidate, normalized)).length;
+        if (result.meta.is_end || page === 3 || (category ? selected.length >= limit : directMatches >= limit)) break;
       } catch (error) {
         if (error instanceof MapsError) throw error;
         if (controller.signal.aborted) throw new MapsError("주변 장소 검색이 취소되었거나 응답 시간이 초과되었습니다.", 504);
@@ -148,7 +153,7 @@ export async function searchNearby(query: string, origin: Point, radius: number,
       if (signal?.aborted) throw new MapsError("검색을 중단했습니다.", 499);
       try { result = await provider.searchPlaces(intent.poiQuery, origin, next, limit, signal); }
       catch (error) {
-        if (!result.candidates.length || signal?.aborted) throw error;
+        if (!result.candidates.length || signal?.aborted || (error instanceof MapsError && error.fatal)) throw error;
         result = { ...result, warnings: [error instanceof MapsError ? error.message : "검색 범위 확대에 실패해 이전 범위의 결과를 사용합니다."] }; break;
       }
       if (result.candidates.length >= count) break;
@@ -163,6 +168,7 @@ export async function searchNearby(query: string, origin: Point, radius: number,
       result = { ...result, candidates: attachNearbyParking(result.candidates, parking.lots) };
       if (parking.limited) warnings.push("인근 주차장은 검색 영역에서 Kakao가 반환한 최대 15곳 안에서만 매칭했습니다.");
     } catch (error) {
+      if (error instanceof MapsError && error.fatal) throw error;
       result = { ...result, candidates: result.candidates.map(candidate => ({ ...candidate, nearbyParking: { status: "unknown", source: "unknown" } })) };
       warnings.push(error instanceof MapsError ? error.message : "인근 주차장 정보를 확인하지 못했습니다.");
     }

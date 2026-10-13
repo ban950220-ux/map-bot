@@ -22,7 +22,7 @@ let sdkPromise: Promise<MapsSdk> | undefined;
 function loadSdk(clientId: string) {
   if (browser().naver?.maps) return Promise.resolve(browser().naver!.maps);
   if (sdkPromise) return sdkPromise;
-  sdkPromise = new Promise((resolve, reject) => {
+  sdkPromise = new Promise<MapsSdk>((resolve, reject) => {
     const script = document.createElement("script");
     const timer = setTimeout(() => reject(new Error("지도 로딩 시간이 초과되었습니다.")), 15000);
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(clientId)}`;
@@ -30,20 +30,26 @@ function loadSdk(clientId: string) {
     script.onload = () => { clearTimeout(timer); const maps = browser().naver?.maps; if (maps) resolve(maps); else reject(new Error("지도 API를 불러오지 못했습니다.")); };
     script.onerror = () => { clearTimeout(timer); reject(new Error("지도 서버에 연결하지 못했습니다.")); };
     document.head.appendChild(script);
+  }).catch(error => {
+    // A transient SDK outage must not poison every later attempt in this tab.
+    sdkPromise = undefined;
+    throw error;
   });
   return sdkPromise;
 }
 export default function NearbyMap({ clientId, origin, places, selectedId, onSelect }: { clientId: string; origin: Point; places: DestinationCandidate[]; selectedId?: string; onSelect: (id: string) => void }) {
   const container = useRef<HTMLDivElement>(null), mapRef = useRef<MapInstance | null>(null);
-  const [sdk, setSdk] = useState<MapsSdk>(), [error, setError] = useState("");
+  const [sdk, setSdk] = useState<MapsSdk>(), [error, setError] = useState(""), [retry, setRetry] = useState(0);
   useEffect(() => {
     let disposed = false;
     const previous = browser().navermap_authFailure;
     const authError = () => { if (!disposed) setError("지도 표시 인증이 필요합니다. NAVER Cloud에서 Dynamic Map 사용과 이 사이트 주소 등록을 확인해 주세요. 목록 비교는 계속 사용할 수 있습니다."); };
     browser().navermap_authFailure = authError;
-    if (clientId) void loadSdk(clientId).then(value => { if (!disposed) setSdk(value); }).catch(cause => { if (!disposed) setError(cause.message); });
+    if (clientId) {
+      void loadSdk(clientId).then(value => { if (!disposed) setSdk(value); }).catch(cause => { if (!disposed) setError(cause.message); });
+    }
     return () => { disposed = true; if (browser().navermap_authFailure === authError) browser().navermap_authFailure = previous; };
-  }, [clientId]);
+  }, [clientId, retry]);
   useEffect(() => {
     if (!sdk || !container.current) return;
     let map: MapInstance | undefined, observer: ResizeObserver | undefined;
@@ -98,5 +104,5 @@ export default function NearbyMap({ clientId, origin, places, selectedId, onSele
     return clearOverlays;
   }, [sdk, origin, places, selectedId, onSelect]);
   const displayError = error || (!clientId ? "지도 표시용 NAVER Client ID가 연결되지 않았습니다." : "");
-  return <div className="nearby-map-wrap" role="region" aria-label="출발지와 후보 목적지 지도"><div ref={container} className="nearby-map"/>{!sdk && !displayError && <p className="map-status" role="status">지도 불러오는 중…</p>}{displayError && <p className="map-status error-box" role="alert">{displayError}</p>}</div>;
+  return <div className="nearby-map-wrap" role="region" aria-label="출발지와 후보 목적지 지도"><div ref={container} className="nearby-map"/>{!sdk && !displayError && <p className="map-status" role="status">지도 불러오는 중…</p>}{displayError && <div className="map-status error-box" role="alert">{displayError}{clientId && !sdk && error && <button type="button" onClick={() => { setError(""); setRetry(value => value + 1); }}>지도 다시 불러오기</button>}</div>}</div>;
 }

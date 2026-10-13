@@ -43,7 +43,8 @@ test('legacy direct and saved-store UI flows remain usable; expanding results ma
 
 test('map SDK failure leaves list, ETA, road distance, sorting and CSV usable', async ({app:page,context,harness:h}) => {
   h.expectedConsoleFailures.push({ path:'/openapi/v3/maps.js',message:'Failed to load resource: net::ERR_FAILED',remaining:1 });
-  await context.route('https://oapi.map.naver.com/**',route=>route.abort());
+  const failScript=route=>route.abort();
+  await context.route('https://oapi.map.naver.com/**',failScript);
   await search(page);await complete(page);
   await expect(page.locator('.map-status')).toContainText('지도');
   await expect(page.locator('.place-card')).toHaveCount(5);
@@ -53,6 +54,46 @@ test('map SDK failure leaves list, ETA, road distance, sorting and CSV usable', 
   await expect(page.locator('.place-card').first()).toContainText('테스트 카페 1');
   await expect(page.getByRole('button',{name:'상위 결과 CSV 다운로드'})).toBeEnabled();
   expect(h.state.calls.length).toBe(before);
+  await context.unroute('https://oapi.map.naver.com/**',failScript);
+  await page.getByRole('button',{name:'지도 다시 불러오기'}).click();
+  await expect(page.locator('.destination-marker')).toHaveCount(6);
+  expect(h.state.calls.length).toBe(before);
+});
+
+test('blocked session storage does not prevent connection or search', async ({app:page,context}) => {
+  await context.addInitScript(() => {
+    for (const method of ['getItem','removeItem']) {
+      const original=Storage.prototype[method];
+      Storage.prototype[method]=function(key,...rest) {
+        if (key === 'nearby-comparison-checkpoint-v4') throw new DOMException('Storage blocked','SecurityError');
+        return original.call(this,key,...rest);
+      };
+    }
+  });
+  await page.reload();
+  await expect(page.getByRole('button',{name:'주변 장소 비교',exact:true})).toBeEnabled();
+  await search(page); await complete(page);
+});
+
+test('switching tabs preserves a comparison and blocks a second paid route stream', async ({app:page,harness:h}) => {
+  const hold=gate(); h.state.holdRoutes={ids:[1,2,3,4],gate:hold};
+  try {
+    await search(page);
+    await expect.poll(()=>h.state.calls.filter(c=>c.op==='route').length).toBe(4);
+    await page.getByRole('tab',{name:'저장 장소 / 주소 경로'}).click();
+    await page.getByLabel('출발지 주소').fill(ORIGIN.address);
+    await page.getByRole('button',{name:'소요시간 비교'}).click();
+    await expect(page.getByRole('alert')).toContainText('다른 경로 조회가 진행 중입니다');
+    expect(h.api.filter(e=>e.path==='/api/compare')).toHaveLength(0);
+    expect(h.state.peak).toBe(4);
+    expect(h.state.calls.filter(c=>c.op==='route')).toHaveLength(4);
+  } finally {hold.release(); h.state.holdRoutes=null;}
+  await expect.poll(()=>h.state.calls.filter(c=>c.op==='route').length).toBe(15);
+  await expect(page.locator('.nearby-results')).toHaveAttribute('aria-busy','false');
+  await page.getByRole('button',{name:'소요시간 비교'}).click();
+  await expect.poll(()=>h.state.calls.filter(c=>c.op==='route').length).toBe(71);
+  await expect(page.getByRole('button',{name:'소요시간 비교'})).toBeEnabled();
+  expect(h.state.peak).toBe(4);
 });
 
 test('all candidate failures remain recoverable and restore after refresh', async ({app:page,harness:h})=>{

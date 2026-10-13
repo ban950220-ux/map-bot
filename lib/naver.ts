@@ -10,6 +10,18 @@ type NaverResponse = {
 export class MapsError extends Error {
   constructor(message: string, public status = 502, public fatal = false) { super(message); }
 }
+// Fail fast across simultaneous requests in one Worker isolate. Workerd does
+// not permit a promise created by one request to be resumed by another, so a
+// shared async queue would break request context isolation. This is not a
+// cross-isolate rate limiter.
+let activeDirections = 0;
+async function withDirectionsSlot<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
+  if (activeDirections >= 4) throw new MapsError("다른 경로 조회가 진행 중입니다. 잠시 뒤 다시 시도해 주세요.", 503, true);
+  activeDirections++;
+  try { return await task(); }
+  finally { activeDirections--; }
+}
 export function configured() {
   const vars = env as unknown as Record<string, string | undefined>;
   return !!(vars.NAVER_MAPS_CLIENT_ID && vars.NAVER_MAPS_CLIENT_SECRET);
@@ -60,7 +72,7 @@ export async function geocode(address: string, signal?: AbortSignal): Promise<Po
 }
 export async function driving(origin: Point, destination: Point, details: { id: number; brand: string; name: string; address: string }, signal?: AbortSignal, options: { option?: "traoptimal" | "trafast"; includePath?: boolean } = {}): Promise<RouteResult> {
   const option = options.option || "traoptimal";
-  const data = await naver("/map-direction/v1/driving", { start: `${origin.x},${origin.y}`, goal: `${destination.x},${destination.y}`, option, cartype: "1", lang: "ko" }, signal);
+  const data = await withDirectionsSlot(() => naver("/map-direction/v1/driving", { start: `${origin.x},${origin.y}`, goal: `${destination.x},${destination.y}`, option, cartype: "1", lang: "ko" }, signal), signal);
   const route = data.route?.[option]?.[0];
   const summary = route?.summary;
   if (!summary || data.code !== 0) throw new MapsError("자동차 경로를 찾지 못했습니다. 출발지와 도착지가 같거나 도로로 연결되지 않았을 수 있습니다.", 422);

@@ -15,6 +15,7 @@ import { eta, rankCandidates, SEARCH_RADII } from "@/services/maps/ranking";
 import type { SortMode } from "@/services/maps/types";
 import { withoutStoredGoogleParking } from "@/services/maps/googlePlaceMatching";
 import { registerNearbyTool } from "@/lib/nearby-webmcp";
+import { beginComparison } from "@/lib/comparisonCoordinator";
 const clock = (date: string) => new Date(date).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
 const sortNames: Record<SortMode, string> = { time: "자동차 시간순", distance: "자동차 거리순", relevance: "검색 관련도순", recommended: "종합 추천순" };
 type Status = { connected: boolean; placesConnected: boolean; mapClientId: string };
@@ -36,7 +37,10 @@ function loadCheckpoint(): NearbyCheckpoint | null {
       sessionStorage.removeItem(CHECKPOINT_KEY); return null;
     }
     return parsed;
-  } catch { sessionStorage.removeItem(CHECKPOINT_KEY); return null; }
+  } catch {
+    try { sessionStorage.removeItem(CHECKPOINT_KEY); } catch { /* Storage may be blocked entirely. */ }
+    return null;
+  }
 }
 export default function NearbyExplorer() {
   const [address, setAddress] = useState("");
@@ -71,6 +75,9 @@ export default function NearbyExplorer() {
   }, []);
   const run = useCallback(async (input: NearbyQuery, resume?: NearbySnapshot) => {
     if (active.current) throw new Error("진행 중인 비교를 먼저 중단해 주세요.");
+    let endComparison: () => void;
+    try { endComparison = beginComparison(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "조회를 시작하지 못했습니다."); throw cause; }
     const controller = new AbortController(); active.current = controller;
     const initial: NearbyProgress = resume ? { phase: "중단 지점부터 이어서 조회 중", done: successfulRouteCount(resume), total: resume.search.candidates.length, snapshot: resume } : { phase: "검색 준비 중", done: 0, total: 0 };
     setBusy(true); setError(""); setOriginChoices([]); setRecovery(null); setSelectedId(undefined); setProgress(initial); saveCheckpoint(input, initial);
@@ -83,7 +90,7 @@ export default function NearbyExplorer() {
     catch (cause) {
       const message = controller.signal.aborted ? "조회를 중단했습니다. 완료된 후보만 임시 순위로 표시합니다." : cause instanceof Error ? cause.message : "조회하지 못했습니다.";
       if (mounted.current) { if (cause instanceof OriginSelectionRequiredError) setOriginChoices(cause.candidates); setError(message); setRecovery(loadCheckpoint()); } throw new Error(message);
-    } finally { if (active.current === controller) active.current = null; if (mounted.current) setBusy(false); }
+    } finally { endComparison(); if (active.current === controller) active.current = null; if (mounted.current) setBusy(false); }
   }, []);
   useEffect(() => registerNearbyTool(async input => {
     setSort(input.sort);
