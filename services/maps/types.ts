@@ -18,7 +18,7 @@ export interface DestinationCandidate {
   storeParking?: StoreParking; nearbyParking?: NearbyParking;
   drivingDistance?: number; drivingDuration?: number; trafficDuration?: number;
   rating?: number; reviewCount?: number; isOpen?: boolean; isClosed?: boolean;
-  route?: RouteData; routeError?: string; routeErrorFatal?: boolean;
+  route?: RouteData; routeError?: string; routeErrorFatal?: boolean; routeErrorBusy?: boolean;
 }
 export type PlaceSearchResult = { candidates: DestinationCandidate[]; searchedRadius: number; requestedRadius: number; expanded: boolean; checkedAt: string; cached: boolean; limited: boolean; warnings: string[]; intent?: import("./searchIntent").SearchIntent };
 export interface PlaceProvider { searchPlaces(query: string, origin: Point, radius: number, limit: number, signal?: AbortSignal): Promise<PlaceSearchResult>; }

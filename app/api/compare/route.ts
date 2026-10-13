@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { addressSchema, pointSchema, authorize, readBody, json, errorResponse } from "@/lib/api";
-import { driving, geocode, MapsError } from "@/lib/naver";
+import { driving, geocode, MapsBusyError, MapsError } from "@/lib/naver";
 import stores from "@/lib/stores.json";
 import type { CompareResponse } from "@/lib/types";
 const schema = z.discriminatedUnion("mode", [
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     for (const [index, item] of settled.entries()) {
       if (item.status === "fulfilled") output.results.push(item.value);
       else {
-        if (item.reason instanceof MapsError && item.reason.fatal) throw item.reason;
+        if (item.reason instanceof MapsBusyError || (item.reason instanceof MapsError && item.reason.fatal)) throw item.reason;
         output.failures.push({ id: selected[index].id, name: `${selected[index].brand} ${selected[index].name}`, message: item.reason instanceof MapsError ? item.reason.message : "경로를 조회하지 못했습니다." });
       }
     }

@@ -10,17 +10,33 @@ type NaverResponse = {
 export class MapsError extends Error {
   constructor(message: string, public status = 502, public fatal = false) { super(message); }
 }
+export class MapsBusyError extends MapsError {
+  constructor() { super("다른 경로 조회가 진행 중입니다. 잠시 뒤 이어서 조회해 주세요.", 503); }
+}
 // Fail fast across simultaneous requests in one Worker isolate. Workerd does
 // not permit a promise created by one request to be resumed by another, so a
 // shared async queue would break request context isolation. This is not a
 // cross-isolate rate limiter.
-let activeDirections = 0;
+// Canceled workerd request contexts may never resume their finally block. A
+// bounded lease keeps such calls counted through the NAVER 18-second deadline
+// and then prevents a permanently stuck isolate.
+const directionLeases = new Map<number, number>();
+let nextLease = 0;
 async function withDirectionsSlot<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   signal?.throwIfAborted();
-  if (activeDirections >= 4) throw new MapsError("다른 경로 조회가 진행 중입니다. 잠시 뒤 다시 시도해 주세요.", 503, true);
-  activeDirections++;
+  const now = Date.now();
+  for (const [id, expiresAt] of directionLeases) if (expiresAt <= now) directionLeases.delete(id);
+  if (directionLeases.size >= 4) throw new MapsBusyError();
+  const id = ++nextLease;
+  directionLeases.set(id, now + 20000);
+  let uncertain = false;
   try { return await task(); }
-  finally { activeDirections--; }
+  catch (error) {
+    uncertain = signal?.aborted || (error instanceof MapsError && error.status === 504) || false;
+    throw error;
+  } finally {
+    if (!uncertain && !signal?.aborted) directionLeases.delete(id);
+  }
 }
 export function configured() {
   const vars = env as unknown as Record<string, string | undefined>;

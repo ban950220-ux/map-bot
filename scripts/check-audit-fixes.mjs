@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { build, transformSync } from 'esbuild';
 import { Miniflare, Response as WorkerResponse } from 'miniflare';
 import { createHarness } from '../tests/browser/harness.mjs';
-import { ORIGIN, docs, gate } from '../tests/browser/upstream.mjs';
+import { ORIGIN, OTHER_ORIGIN, docs, gate } from '../tests/browser/upstream.mjs';
 
 const coordinatorBundle = (await build({ entryPoints: ['lib/comparisonCoordinator.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral' })).outputFiles[0].text;
 const { beginComparison } = await import('data:text/javascript;base64,' + Buffer.from(coordinatorBundle).toString('base64'));
@@ -74,6 +74,74 @@ try {
   assert.deepEqual(harness.state.blocked, []);
   console.log('PASS shared route limit: overlapping request rejected, peak 4 within one Worker isolate');
 } finally { await harness.close(); }
+
+const clientBundle = (await build({ entryPoints: ['lib/nearby-client.ts'], bundle: true, write: false, format: 'esm', platform: 'browser' })).outputFiles[0].text;
+const { runNearbyComparison } = await import('data:text/javascript;base64,' + Buffer.from(clientBundle).toString('base64'));
+const recoveryHarness = await createHarness();
+try {
+  const stores = JSON.parse(readFileSync('lib/stores.json', 'utf8'));
+  const heldIds = stores.slice(0, 4).map(store => Math.round((store.x - ORIGIN.x) / .0002));
+  const hold = gate(); recoveryHarness.state.holdRoutes = { ids: heldIds, start: `${ORIGIN.x},${ORIGIN.y}`, gate: hold };
+  const request = (path, body, signal) => fetch(recoveryHarness.url + path, { method: 'POST', headers: { cookie: 'fixture-owner=1', 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
+  const legacy = request('/api/compare', { mode: 'stores', origin: ORIGIN, ids: [1, 2, 3, 4] });
+  for (let attempt = 0; attempt < 100 && recoveryHarness.state.calls.filter(call => call.op === 'route').length < 4; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(recoveryHarness.state.calls.filter(call => call.op === 'route').length, 4);
+  const candidates = docs.slice(0, 8).map(place => ({ id: `kakao:${place.id}`, name: place.place_name, address: place.road_address_name, latitude: Number(place.y), longitude: Number(place.x), category: place.category_name, source: 'kakao-local' }));
+  const input = { address: OTHER_ORIGIN.address, location: OTHER_ORIGIN, query: '카페', radius: 5000, count: 5, expand: false };
+  const search = { candidates, requestedRadius: 5000, searchedRadius: 5000, expanded: false, cached: false, limited: false, checkedAt: new Date().toISOString(), warnings: [] };
+  let routeBatches = 0;
+  const post = async (path, body, signal) => {
+    if (path === '/api/places') return search;
+    assert.equal(path, '/api/nearby-routes'); routeBatches++;
+    const response = await request(path, body, signal);
+    assert.equal(response.status, 200); return response.json();
+  };
+  let partial;
+  try {
+    partial = await runNearbyComparison(input, new AbortController().signal, () => {}, post);
+    assert.equal(partial.completed, false);
+    assert.equal(routeBatches, 1);
+    assert.equal(partial.candidates.filter(candidate => candidate.routeErrorBusy).length, 4);
+    assert.equal(partial.candidates.some(candidate => candidate.routeErrorFatal), false);
+    assert.equal(recoveryHarness.state.calls.filter(call => call.op === 'route').length, 4);
+  } finally { hold.release(); recoveryHarness.state.holdRoutes = null; }
+  assert.equal((await legacy).status, 200);
+  const resumed = await runNearbyComparison(input, new AbortController().signal, () => {}, post, partial);
+  assert.equal(resumed.completed, true);
+  assert.equal(routeBatches, 3);
+  assert.equal(recoveryHarness.state.peak, 4);
+  console.log('PASS nearby busy recovery: stops one batch, preserves resume, completes on explicit retry');
+} finally { await recoveryHarness.close(); }
+
+const abortHarness = await createHarness();
+try {
+  const candidates = docs.slice(0, 4).map(place => ({ id: `kakao:${place.id}`, name: place.place_name, address: place.road_address_name, latitude: Number(place.y), longitude: Number(place.x), category: place.category_name, source: 'kakao-local' }));
+  const hold = gate(); abortHarness.state.holdRoutes = { ids: [1, 2, 3, 4], start: `${ORIGIN.x},${ORIGIN.y}`, gate: hold };
+  const post = (origin, signal) => fetch(abortHarness.url + '/api/nearby-routes', { method: 'POST', headers: { cookie: 'fixture-owner=1', 'content-type': 'application/json' }, body: JSON.stringify({ origin, candidates }), signal });
+  try {
+    const controller = new AbortController();
+    const canceled = post(ORIGIN, controller.signal).catch(() => {});
+    for (let attempt = 0; attempt < 100 && abortHarness.state.calls.filter(call => call.op === 'route').length < 4; attempt++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(abortHarness.state.calls.filter(call => call.op === 'route').length, 4);
+    controller.abort(); await canceled;
+    const later = await post(OTHER_ORIGIN);
+    const data = await later.json();
+    assert.equal(later.status, 200);
+    assert.equal(data.candidates.filter(candidate => candidate.routeErrorBusy).length, 4);
+    assert.equal(abortHarness.state.peak, 4);
+    assert.equal(abortHarness.state.calls.filter(call => call.op === 'route').length, 4);
+    console.log('PASS late-abort guard: B is recoverably busy while A upstream remains held; peak 4');
+  } finally { hold.release(); abortHarness.state.holdRoutes = null; }
+  // A canceled request context can abandon its finally block. Its bounded
+  // lease must expire before an explicit retry is allowed in this isolate.
+  await new Promise(resolve => setTimeout(resolve, 20100));
+  const retried = await post(OTHER_ORIGIN);
+  const retryData = await retried.json();
+  assert.equal(retried.status, 200);
+  assert.equal(retryData.candidates.filter(candidate => candidate.route).length, 4);
+  assert.equal(abortHarness.state.peak, 4);
+  console.log('PASS canceled-slot recovery: explicit retry succeeds after bounded lease');
+} finally { await abortHarness.close(); }
 
 const explorerSource = readFileSync('components/NearbyExplorer.tsx', 'utf8');
 const checkpointBody = explorerSource.slice(explorerSource.indexOf('function loadCheckpoint()'), explorerSource.indexOf('\nexport default function NearbyExplorer()'));
