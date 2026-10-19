@@ -31,6 +31,10 @@ Directions 5는 다중 목적지 행렬 API로 사용하지 않습니다. 직선
 
 ## Install and Run
 
+PC 없이 Linux/GPT cloud에서 작업할 때는 [CLOUD_SETUP.md](CLOUD_SETUP.md)의
+`npm run install:ci`, secret-free smoke, offline browser 검증 절차를 사용합니다.
+쓰기 제한이 있는 HOME에서도 npm/Wrangler/browser 상태는 checkout 내부에 둡니다.
+
 ```bash
 npm ci
 npm run dev
