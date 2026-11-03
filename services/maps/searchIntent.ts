@@ -6,7 +6,7 @@ export type SearchIntent = {
   parkingPreference: ParkingPreference;
 };
 
-const PARKING_CONDITION = /(?:주차\s*(?:가\s*)?(?:가능한?|되는|지원(?:하는)?|할\s*수\s*있는)|주차장\s*(?:있는|보유(?:한)?))/gi;
+const PARKING_CONDITION = /(?:주차\s*(?:가능한?|되는|지원(?:하는)?|할\s*수\s*있는)|주차장\s*(?:있는|보유(?:한)?))/gi;
 
 export function parseSearchIntent(query: string): SearchIntent {
   const rawQuery = query.trim().replace(/\s+/g, " ");
