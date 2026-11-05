@@ -1,0 +1,32 @@
+{
+  "checked_at": "2026-11-05T04:36:26.626714+00:00",
+  "local_checks": [
+    {
+      "command": "python3 scripts/dev.py contract",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 -m py_compile scripts/dev.py",
+      "exit_code": 0
+    },
+    {
+      "command": "pre-push synthetic input refs/heads/main",
+      "exit_code": 1,
+      "expected": 1
+    },
+    {
+      "command": "pre-push synthetic input refs/heads/ai/example",
+      "exit_code": 0,
+      "expected": 0
+    }
+  ],
+  "full_install_build": "BLOCKED in this executor: incomplete offline npm/Python cache; package registry not used for validation",
+  "remote_ci": "PENDING new PR final-head checks",
+  "other_ai_execution": false,
+  "operating_deployment": false,
+  "operating_data_writes": false
+}

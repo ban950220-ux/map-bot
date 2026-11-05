@@ -1,0 +1,27 @@
+{
+  "inspected_at": "2026-11-05 Asia/Seoul",
+  "github": {
+    "url": "https://github.com/ban950220-ux/map-bot",
+    "default_branch": "main",
+    "source_sha": "f3264382d0ef8cf5be2759b1f16bccc3aabff1eb",
+    "development_branch": "ai/codex/portable-development-20261105",
+    "pr_base": "main",
+    "checkpoint_branch": "checkpoint/ai-source-20261105"
+  },
+  "production": {
+    "project_id": "appgprj_6aa13e471abc819193188a4999e314f6",
+    "version": 24,
+    "version_id": "appgprj_6aa13e471abc819193188a4999e314f6~appgver_e323f67465dc8191a3fa27e63f2fde2a",
+    "source_sha": "5431a5778ad698d8cdb6d709a5c717419b3a8e1a",
+    "deployment_id": "appgdep_6ace374d1d2481919cf94bc12eb70968",
+    "verified_status": "succeeded"
+  },
+  "open_prs": [],
+  "schedules": [],
+  "unverified": [
+    "External deployment hooks outside inspected GitHub workflows",
+    "Operating secret values (intentionally unread)",
+    "Production data completeness until backup verification"
+  ],
+  "actual_other_ai_execution": false
+}

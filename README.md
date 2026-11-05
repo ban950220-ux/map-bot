@@ -1,3 +1,20 @@
+# MAP — developer entry
+
+지도·경로·후보 비교 웹앱。
+
+Start with [AI_HANDOFF.md](AI_HANDOFF.md), [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
+
+```sh
+python scripts/dev.py --list
+python scripts/dev.py contract
+python scripts/dev.py install-hooks
+python scripts/dev.py setup
+```
+
+Run only the relevant supported tasks. Dependencies/network requirements and known verification gaps are in the handoff. Development changes do not update operating services.
+
+## Existing user and developer guide
+
 # 가까운 한 끼
 
 출발지와 장소 검색어를 입력하면 주변 후보를 찾고, 각 후보까지의 실제 자동차 경로·교통 반영 ETA·도로거리를 비교하는 개인용 지도 탐색 사이트입니다. 기존 저장 매장과 직접 입력 목적지를 비교하는 화면도 별도 탭으로 유지합니다.

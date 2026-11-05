@@ -1,0 +1,5 @@
+---
+description: Repository development rules
+alwaysApply: true
+---
+Read the repository-root AGENTS.md, AI_HANDOFF.md and development.json before editing. AGENTS.md is the canonical common rule source.

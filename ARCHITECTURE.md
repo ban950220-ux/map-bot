@@ -1,3 +1,20 @@
+# MAP architecture and boundaries
+
+지도·경로·후보 비교 웹앱。
+
+| Path | Responsibility |
+|---|---|
+| `app/` | 화면 및 인증된 API 라우트 |
+| `services/maps/types.ts` | PlaceProvider / RoutingProvider 인터페이스 |
+| `services/maps/` | Kakao 장소·NAVER 경로·Google 주차 어댑터와 조정 |
+| `lib/naver.ts` | 서버 키·타임아웃·최대 4개 경로 동시 처리 |
+| `lib/stores.json` | 기존 매장 자료; CSV 계약 보존 |
+| `tests/browser/` | 모의 upstream 브라우저 회귀 |
+
+핵심 로직은 합성 입력과 제공자 어댑터의 정규화된 출력을 사용한다. 공급자 장애는 인증·HTTP·응답형식·데이터 누락으로 구분하며 0 또는 성공으로 대체하지 않는다. 기존 구현의 잔여 결합은 AI_HANDOFF.md에 기록한다.
+
+## Existing implementation detail
+
 # Architecture
 
 ## System Overview
