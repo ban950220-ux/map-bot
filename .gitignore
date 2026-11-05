@@ -49,3 +49,11 @@ next-env.d.ts
 !/.codex/agents/*.toml
 /outputs/
 /work/
+
+# Public variable names only; private backups and keys stay outside Git.
+!.env.example
+/private-backup/
+/.private-portflow/
+
+__pycache__/
+*.py[cod]

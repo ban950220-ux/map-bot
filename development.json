@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "project": "MAP",
+  "tasks": {
+    "setup": [
+      [
+        "npm",
+        "run",
+        "install:ci"
+      ]
+    ],
+    "dev": [
+      [
+        "npm",
+        "run",
+        "dev"
+      ]
+    ],
+    "check": [
+      [
+        "npm",
+        "exec",
+        "--no",
+        "--",
+        "tsc",
+        "--noEmit"
+      ]
+    ],
+    "lint": [
+      [
+        "npm",
+        "run",
+        "lint"
+      ]
+    ],
+    "build": [
+      [
+        "npm",
+        "run",
+        "build"
+      ]
+    ],
+    "test-unit": [
+      [
+        "npm",
+        "run",
+        "test:directions"
+      ]
+    ],
+    "test-integration": [
+      [
+        "node",
+        "scripts/check-nearby.mjs"
+      ],
+      [
+        "npm",
+        "run",
+        "test:audit"
+      ]
+    ],
+    "test-browser": [
+      [
+        "npm",
+        "run",
+        "test:browser"
+      ]
+    ],
+    "test": [
+      [
+        "node",
+        "scripts/check-nearby.mjs"
+      ],
+      [
+        "npm",
+        "run",
+        "test:audit"
+      ],
+      [
+        "npm",
+        "run",
+        "test:directions"
+      ]
+    ],
+    "install-hooks": [
+      [
+        "git",
+        "config",
+        "--local",
+        "core.hooksPath",
+        ".githooks"
+      ]
+    ]
+  },
+  "limitations": [],
+  "operating_actions_excluded": [
+    "deploy",
+    "merge",
+    "send",
+    "schedule",
+    "migrate-production"
+  ]
+}
