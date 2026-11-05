@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "project": "MAP",
+  "recorded_at": "2026-11-05T12:30:01.834411+00:00",
+  "base_sha": "58b31997cc979bafa46efb6bd006bc96d75b43b1",
+  "implementation_sha": "7d52e942825047a2c40e7458d5bda79992e7b35b",
+  "branch": "ai/codex/map-independent-pwa-20261105",
+  "runtime": {
+    "node": "24.22.1",
+    "browser": "system Chromium 151.0.7922.173 on Debian 13",
+    "pinned_playwright_browser_used": false
+  },
+  "checks": {
+    "setup": {
+      "status": "pass",
+      "command": "python scripts/dev.py setup",
+      "note": "Existing npm lock; explicit Node 24.22.1 PATH"
+    },
+    "typecheck": {
+      "status": "pass",
+      "command": "python scripts/dev.py check"
+    },
+    "lint": {
+      "status": "pass",
+      "command": "python scripts/dev.py lint"
+    },
+    "contract": {
+      "status": "pass",
+      "command": "python scripts/dev.py contract"
+    },
+    "sites_build": {
+      "status": "pass",
+      "command": "python scripts/dev.py build"
+    },
+    "independent_build": {
+      "status": "pass",
+      "command": "python scripts/dev.py build-independent"
+    },
+    "original_output_preserved": {
+      "status": "pass",
+      "sites_dist_sha256": "70d7a23fcea4691dd8017dd5510f20df39e5492b726193a49b627b019685c2b3"
+    },
+    "map_audit_directions": {
+      "status": "pass",
+      "command": "python scripts/dev.py test",
+      "note": "Run after Sites build; fresh-output prerequisite observed"
+    },
+    "independent_auth": {
+      "status": "pass",
+      "command": "python scripts/dev.py test-independent",
+      "passed": 3,
+      "failed": 0
+    },
+    "independent_browser_sequential": {
+      "status": "pass",
+      "command": "MAP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium python scripts/dev.py test-independent-browser",
+      "cases": 4,
+      "repeat_each": 3,
+      "passed": 12,
+      "failed": 0,
+      "duration": "35.6s"
+    },
+    "sites_failed_case_sequential": {
+      "status": "pass",
+      "passed": 3,
+      "failed": 0,
+      "case": "J Search A late routes response cannot contaminate any B state",
+      "repeat_each": 3
+    },
+    "sites_browser_sequential": {
+      "status": "pass",
+      "cases": 44,
+      "passed": 44,
+      "failed": 0,
+      "duration": "2.0m",
+      "command": "MAP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium node --import ./scripts/sites-env.mjs node_modules/@playwright/test/cli.js test"
+    },
+    "synthetic_loopback_preview": {
+      "status": "pass",
+      "url": "http://127.0.0.1:44035",
+      "external_requests": 0,
+      "cache_storage_entries": 0,
+      "horizontal_overflow": false,
+      "screenshot": "outputs/map-independent-mobile.png",
+      "summary": "outputs/preview-smoke.json"
+    },
+    "original_sources_preserved": {
+      "status": "pass",
+      "paths": [
+        "app",
+        "components",
+        "lib",
+        "services",
+        "public",
+        "vite.config.ts",
+        "build",
+        ".openai",
+        "package-lock.json",
+        ".node-version"
+      ],
+      "comparison_base": "58b31997cc979bafa46efb6bd006bc96d75b43b1"
+    }
+  },
+  "earlier_runs": [
+    {
+      "status": "failed_then_fixed",
+      "details": "Login Referrer-Policy no-referrer caused same-origin form Origin to be null; changed to same-origin. Public static asset allowlist corrected to generated /_next/static/ path. Miniflare gateway redirect behavior made manual."
+    },
+    {
+      "status": "environment_failure_corrected",
+      "details": "Pinned Playwright browser absent; explicitly selected documented system Chromium fallback."
+    },
+    {
+      "status": "failed",
+      "run": "overlapping browser suites",
+      "sites_passed": 131,
+      "sites_failed": 1,
+      "sites_attempted": 132,
+      "independent_passed": 10,
+      "independent_failed": 2,
+      "details": "Timeouts in route-progress and cold UI readiness while suites overlapped. Failures preserved. No product code or timeout thresholds changed between this run and sequential reruns. Resource contention is an inference, not an established root cause."
+    }
+  ],
+  "not_run": [
+    "Independent HTTPS hosting",
+    "Android physical installation/standalone",
+    "iPhone physical installation/standalone",
+    "Real provider APIs, tiles and device GPS",
+    "Production distributed session revocation/rate-limit consistency",
+    "New GitHub PR/CI",
+    "Paid infrastructure/API"
+  ],
+  "production_unchanged": true,
+  "operating_data_or_secrets_copied": false,
+  "remote_mutations": false,
+  "blockers": [
+    {
+      "action": "Independent HTTPS preview deployment",
+      "status": "pending_not_attempted",
+      "reason": "No configured Cloudflare deployment identity/credentials, exact target or verified free cost cap; service host outside current restricted allowlist. No new auth or network policy requested."
+    },
+    {
+      "action": "Production independent authentication",
+      "status": "pending_not_attempted",
+      "reason": "Owner configuration unprovisioned and KV ID is local placeholder. KV eventual consistency requires a production session/throttle design decision before readiness."
+    },
+    {
+      "action": "GitHub publication/new PR",
+      "status": "withheld_not_denied",
+      "reason": "Public repository and connector push permission confirmed. Account-specific execution/cost conditions and external hooks remain unverified; preserve local commit, patch, bundle and PR draft."
+    }
+  ],
+  "verdict": "LOCAL CANDIDATE VALIDATED; NOT READY FOR PRODUCTION",
+  "preserved_original_worktree": {
+    "path": "/workspace/map-bot",
+    "branch": "cloud/map-bootstrap-smoke",
+    "head": "e606daf1674fb98de0d75ce59ce4af190c4f4c85",
+    "clean": true
+  }
+}

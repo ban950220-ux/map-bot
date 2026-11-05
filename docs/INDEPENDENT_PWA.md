@@ -57,3 +57,5 @@ python scripts/dev.py preview-independent
 ## 복구와 인수
 
 운영 복구 작업은 필요 없다. 이전 PR #6와 원래 worktree는 그대로 남아 있다. 개발만 되돌리려면 독립 브랜치의 새 commit을 revert하는 별도 PR을 준비한다. `dist/`는 원래 build로 재생성할 수 있고 `dist-independent/`, `.independent-build/`는 재생성 가능한 후보 산출물이다. 실제 운영 데이터·비밀값·일정·Sites 접근 설정은 건드리지 않았다. 번들과 patch는 base `58b3199` 이후 변경을 포함하며 최종 보고의 경로에서 같은 작업을 이어갈 수 있다.
+
+최종 검증 보충: 최종 단독 순차 실행에서 기존 Sites 브라우저 44/44, 독립 후보 4개 흐름×3회=12/12, 인증 3/3이 통과했다. 앞선 두 suite의 동시 실행에서는 Sites 131/132, 독립 후보 10/12로 시간 초과가 있었으며, 실패한 Sites 항목도 별도 3/3 재검증했다. 동일 제품 코드·동일 timeout 설정으로 단독 실행이 통과했고 CPU throttling 관측도 있었지만, 동시 실행 자원 경합은 추정 원인으로 기록한다. 실패 기록을 숨기거나 전체 132/132로 바꾸지 않는다. 타입·lint·command contract·Sites build·독립 build·지도 mock/audit/directions 검사도 통과했다.
