@@ -41,3 +41,7 @@ Sites v24 source 5431a5778ad698d8cdb6d709a5c717419b3a8e1a is four GitHub commits
 ## Approval gates
 
 Merge into default, operating deployment, operating data changes/migrations, actual financial actions, schedule/automatic delivery activation, paid infrastructure/API and secret rotation require separate approval. Private repository branch protection is unavailable under the inspected GitHub plan (HTTP 403); these documents and CI do not enforce server-side protection. MAP public repository has no inspected rulesets. Do not change visibility or buy a plan silently.
+
+## Subsequent isolated PWA development
+
+The product-freeze statements above describe the earlier AI handoff task. A later explicit user request authorizes a separate independent MAP/PWA candidate while preserving operating Sites authentication/data/provider boundaries. See `docs/INDEPENDENT_PWA.md`, `docs/validation/map-independent-20261105.json` and the new independent commands in `development.json`. These local candidate results are not a deployment or a modification of PR #6.

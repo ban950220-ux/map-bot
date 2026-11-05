@@ -112,3 +112,7 @@ Web App manifest와 192/512/maskable 아이콘, credentialed manifest 연결은 
 ## Repository
 
 canonical remote는 `https://github.com/ban950220-ux/map-bot.git`이고 기본 개발 branch는 `main`입니다. 2026-09-18 GitHub 연결 메타데이터는 현재 repository visibility를 `public`으로 반환합니다. 이는 owner-only Sites 접근과 별개이며, 공개범위 자체는 명시적 결정 없이 변경하지 않습니다. 새 환경에서는 이 repository를 clone한 뒤 위 설치·검증 절차를 따릅니다. 이 PC의 `legacy-origin`은 이전 local checkout을 가리킵니다. Sites project와 배포 상태는 `PROJECT_CONTEXT.md`를 참조합니다.
+
+## 독립 PWA 개발 후보
+
+기존 Sites 실행·배포 경로를 유지한 별도 후보와 무료 합성 미리보기는 [독립 PWA 문서](docs/INDEPENDENT_PWA.md)를 참조하세요. `build-independent`, `test-independent`, `test-independent-browser`, `preview-independent`는 `python scripts/dev.py`의 별도 명령이며 운영 배포를 수행하지 않습니다.

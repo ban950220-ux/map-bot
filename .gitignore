@@ -57,3 +57,6 @@ next-env.d.ts
 
 __pycache__/
 *.py[cod]
+
+/.independent-build/
+/dist-independent/

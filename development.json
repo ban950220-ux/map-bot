@@ -89,6 +89,34 @@
         "core.hooksPath",
         ".githooks"
       ]
+    ],
+    "build-independent": [
+      [
+        "npm",
+        "run",
+        "build:independent"
+      ]
+    ],
+    "test-independent": [
+      [
+        "npm",
+        "run",
+        "test:independent"
+      ]
+    ],
+    "test-independent-browser": [
+      [
+        "npm",
+        "run",
+        "test:independent:browser"
+      ]
+    ],
+    "preview-independent": [
+      [
+        "npm",
+        "run",
+        "preview:independent"
+      ]
     ]
   },
   "limitations": [],
