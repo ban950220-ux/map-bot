@@ -1,0 +1,92 @@
+{
+  "base_sha": "e7f07a6ecf99e286587ee9413f4a6a11402b6200",
+  "implementation_sha": "231e6c240cf52f0f39ceccac7e640b12f76c395d",
+  "branch": "ai/codex/map-independent-pwa-20261105",
+  "recorded_at": "2026-11-05T12:45:41.319329+00:00",
+  "problem": "Previous session backend was eventually consistent KV, not isolate-local memory. Logout deletion could be stale elsewhere, read/modify/write throttle could lose concurrent updates, credential changes had no generation invalidation.",
+  "change": "Single named durable authority; serialized persisted state; no KV/positive auth cache fallback; monotonic credential generation; failures return 503 and failed logout never claims durable revocation.",
+  "checks": {
+    "unit_and_model": {
+      "status": "pass",
+      "passed": 8,
+      "failed": 0,
+      "command": "python scripts/dev.py test-independent"
+    },
+    "actual_workerd_sqlite_runtime": {
+      "status": "pass",
+      "passed": 2,
+      "failed": 0,
+      "duration_seconds": 7.249,
+      "command": "python scripts/dev.py test-independent-runtime",
+      "coverage": [
+        "Two independent ingress Worker services share one named SQLite-backed Durable Object",
+        "Process restart preserves sessions, logout revocation and login budget",
+        "Monotonic credential generation invalidates old sessions and rejects stale ingress/authority and downgrade",
+        "12 concurrent invalid logins: exactly 5 responses 401 and 7 responses 429"
+      ]
+    },
+    "browser": {
+      "status": "pass",
+      "passed": 12,
+      "failed": 0,
+      "repeat_each": 3,
+      "duration_seconds": 36.3,
+      "command": "MAP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium python scripts/dev.py test-independent-browser"
+    },
+    "typecheck": {
+      "status": "pass",
+      "command": "python scripts/dev.py check"
+    },
+    "lint": {
+      "status": "pass",
+      "command": "python scripts/dev.py lint"
+    },
+    "contract": {
+      "status": "pass",
+      "command": "python scripts/dev.py contract"
+    },
+    "sites_build": {
+      "status": "pass",
+      "command": "python scripts/dev.py build"
+    },
+    "independent_build": {
+      "status": "pass",
+      "command": "python scripts/dev.py build-independent"
+    },
+    "sites_output_preserved": {
+      "status": "pass",
+      "sites_dist_sha256": "b4c7aec80e19a9dff0248c929316378a450ae671a62bb884ddfb43ada59a6d1b",
+      "node": "v24.22.1",
+      "isolated": true
+    },
+    "original_sites_product_sources": {
+      "status": "pass",
+      "compared_to": "58b31997cc979bafa46efb6bd006bc96d75b43b1",
+      "note": "Original app/components/lib/services/public/vite config/Sites config/package lock/Node version unchanged"
+    }
+  },
+  "earlier_runtime_failure": {
+    "status": "corrected_test_origin",
+    "details": "Miniflare local proxy rejected non-loopback synthetic Origin. Kept proxy guard enabled and used loopback Origin; no application origin guard relaxed."
+  },
+  "historical_checks_not_rerun": [
+    "Original Sites full 44-case browser suite and map/audit/directions passed at e7f07a6 and were not rerun in this followup; underlying Sites product sources are unchanged."
+  ],
+  "not_run": [
+    "Remote DO namespace/binding/migration provisioning",
+    "Real multi-region hosting/failure/deployment propagation",
+    "Actual owner credential creation or rotation",
+    "Production restore of authority state",
+    "Real map API/device install/paid calls",
+    "GitHub publication"
+  ],
+  "guarantee_boundary": "Committed authority revocation applies to later authority checks. Previously authorized in-flight provider operations are not canceled. Configuration deployment propagation and namespace/snapshot replacement remain operating policy gates.",
+  "operating_changes": false,
+  "remote_resources_created": false,
+  "verdict": "LOCAL AUTHORITY CANDIDATE VALIDATED; NOT DEPLOYED",
+  "remaining_choices": [
+    "Provision the proposed single-owner Durable Object authority only after exact resource/free quota/cost cap/access and credential-generation policy approval",
+    "Alternatively select an independent identity provider/central session service with explicit revoke/introspection semantics; new OAuth/credentials remain outside this authorization"
+  ],
+  "artifact_privacy": "Original development history is preserved locally. For official storage, export new commit author/committer metadata as generic service identity without changing file trees. Keep original/export SHA mapping; no private runtime DB, credentials, cookies or screenshots in upload set."
+}

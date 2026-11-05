@@ -42,3 +42,5 @@
 현재 후보는 첫 선택지를 코드로 합성 검증했지만 실제 운영 자원/인증 정책을 확정하거나 생성하지 않았다. 비용이 드는 호출, 실제 지도 API, 운영 설정/데이터 변경, GitHub 게시와 배포도 하지 않았다.
 
 공식 근거: [Durable Objects 개념](https://developers.cloudflare.com/durable-objects/concepts/what-are-durable-objects/), [저장소와 code update 설명](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/), [상태·동시성 API](https://developers.cloudflare.com/durable-objects/api/state/). 실제 서비스 보장은 Cloudflare 제공 계약과 실제 배포 검증을 별도로 확인해야 한다.
+
+최종 결과: 모델/인증 8/8, 실제 workerd/SQLite 재시작·동시성 2/2, 독립 브라우저 12/12, 타입·lint·Sites build·독립 build·command contract 모두 통과했다. `docs/validation/map-independent-authority-20261105.json`에 현 실행과 과거 검증을 분리했다. 공식 보존용 Git export는 원래 로컬 개발 ref를 보존하면서 작성자/committer를 일반 서비스 식별자로 바꾼 별도 ref이며 원본과 파일 tree가 동일함을 검사한다.
