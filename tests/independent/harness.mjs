@@ -33,8 +33,8 @@ export async function createIndependentHarness({ preview = false } = {}) {
   const files=(await readdir(root,{recursive:true})).filter(f=>/\.(?:m?js)$/.test(f)&&f!=='index.js');
   worker=new Miniflare({modules:['index.js',...files].map(f=>({type:'ESModule',path:path.join(root,f)})),modulesRoot:root,
     compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],cf:false,
-    kvNamespaces:['MAP_SESSIONS'],
-    bindings:{MAP_ORIGIN:url,MAP_OWNER_SALT:'synthetic-independent-salt',MAP_OWNER_PASSWORD_HASH:await passwordHash(syntheticPassword,'synthetic-independent-salt'),NAVER_MAPS_CLIENT_ID:'fixture-id',NAVER_MAPS_CLIENT_SECRET:'fixture-secret',KAKAO_REST_API_KEY:'fixture-kakao'},
+    durableObjects:{MAP_AUTHORITY:{className:'OwnerAuthority',useSQLite:true}},
+    bindings:{MAP_AUTH_GENERATION:'1',MAP_ORIGIN:url,MAP_OWNER_SALT:'synthetic-independent-salt',MAP_OWNER_PASSWORD_HASH:await passwordHash(syntheticPassword,'synthetic-independent-salt'),NAVER_MAPS_CLIENT_ID:'fixture-id',NAVER_MAPS_CLIENT_SECRET:'fixture-secret',KAKAO_REST_API_KEY:'fixture-kakao'},
     outboundService:upstream.fetch,
     serviceBindings:{ASSETS:async request=>{
       const name=new URL(request.url).pathname;const target=path.resolve('dist-independent/client','.'+decodeURIComponent(name));

@@ -19,9 +19,10 @@
     "test:directions": "node --experimental-strip-types scripts/check-naver-directions.mjs",
     "db:generate": "drizzle-kit generate",
     "build:independent": "node scripts/build-independent.mjs",
-    "test:independent": "node --test tests/independent/auth.test.mjs",
+    "test:independent": "node --test tests/independent/auth.test.mjs tests/independent/consistency.test.mjs",
     "preview:independent": "node scripts/preview-independent.mjs",
-    "test:independent:browser": "node --import ./scripts/sites-env.mjs node_modules/@playwright/test/cli.js test --config independent/playwright.config.mjs --repeat-each=3"
+    "test:independent:browser": "node --import ./scripts/sites-env.mjs node_modules/@playwright/test/cli.js test --config independent/playwright.config.mjs --repeat-each=3",
+    "test:independent:runtime": "node --test tests/independent/runtime.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

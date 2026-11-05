@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createIndependentWorker, passwordHash } from '../../independent/auth.mjs';
+import { authorityModel } from './authority-model.mjs';
 const origin = 'https://map.example.invalid';
 async function fixture() {
-  const store = new Map(); const seen = [];
-  const env = { MAP_ORIGIN: origin, MAP_OWNER_SALT: 'synthetic-salt-only', MAP_OWNER_PASSWORD_HASH: await passwordHash('synthetic-owner-password', 'synthetic-salt-only'),
-    MAP_SESSIONS: { async get(k) { return store.get(k) || null; }, async put(k,v) { store.set(k,v); }, async delete(k) { store.delete(k); } },
+  const seen = [];
+  const env = { MAP_AUTH_GENERATION:'1',MAP_ORIGIN: origin, MAP_OWNER_SALT: 'synthetic-salt-only', MAP_OWNER_PASSWORD_HASH: await passwordHash('synthetic-owner-password', 'synthetic-salt-only'),
     ASSETS: { async fetch(req) { return new Response(new URL(req.url).pathname, { headers:{'Cache-Control':'public, max-age=3600'} }); } },
   };
+  const model=authorityModel(env);env.MAP_AUTHORITY=model.namespace;const store=model.store;
   const worker = createIndependentWorker({ async fetch(req) { seen.push(req); return new Response('private result'); } });
   const fetch = (p='/',init={}) => worker.fetch(new Request(origin+p,init),env,{});
   const login = (password='synthetic-owner-password',headers={}) => fetch('/auth/login', { method:'POST', headers:{Origin:origin,'Content-Type':'application/x-www-form-urlencoded',...headers}, body:new URLSearchParams({password}) });
@@ -38,7 +39,7 @@ test('reject forged identity, missing/wrong origin, expired/tampered/duplicate s
   assert.equal((await f.fetch('/api/status',{headers:{cookie:'__Host-map-session=forged'}})).status,401);
   const cookie=(await f.login()).headers.get('set-cookie').split(';')[0];
   assert.equal((await f.fetch('/api/status',{headers:{cookie:cookie+'; '+cookie}})).status,401);
-  for(const k of f.store.keys()) if(k.startsWith('session:')) f.store.set(k,'1');
+  const record=f.store.get('owner');record.sessions.forEach(s=>{s.expires=1;});
   assert.equal((await f.fetch('/api/status',{headers:{cookie}})).status,401);
   delete f.env.MAP_OWNER_PASSWORD_HASH; assert.equal((await f.fetch('/')).status,503);
 });

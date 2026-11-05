@@ -9,7 +9,9 @@ export default defineConfig(async () => {
     config: { name: 'map-independent-candidate', main: './independent/worker.ts', compatibility_date: '2026-05-15', compatibility_flags: ['nodejs_compat'],
       observability: { enabled: false },
       assets: { binding: 'ASSETS', run_worker_first: true },
-      kv_namespaces: [{ binding: 'MAP_SESSIONS', id: '00000000000000000000000000000000' }],
+      durable_objects: { bindings: [{ name: 'MAP_AUTHORITY', class_name: 'OwnerAuthority' }] },
+      // Prospective candidate metadata; never deployed by local build/tests.
+      migrations: [{ tag: 'map-owner-v1', new_sqlite_classes: ['OwnerAuthority'] }],
     },
   })] };
 });

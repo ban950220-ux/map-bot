@@ -117,6 +117,13 @@
         "run",
         "preview:independent"
       ]
+    ],
+    "test-independent-runtime": [
+      [
+        "npm",
+        "run",
+        "test:independent:runtime"
+      ]
     ]
   },
   "limitations": [],

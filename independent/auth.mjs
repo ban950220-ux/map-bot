@@ -1,20 +1,20 @@
 // Independent owner boundary. Never mounted by the Sites build.
-const encoder = new TextEncoder();
+export { passwordHash } from './crypto.mjs';
 const cookieName = '__Host-map-session';
 const lifetime = 60 * 60;
 const publicPaths = new Set(['/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/favicon.svg', '/sw.js']);
 const noStore = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin' };
-const hex = bytes => [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
-export async function passwordHash(password, salt) {
-  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-  return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: encoder.encode(salt), iterations: 100000 }, key, 256));
+async function authority(env, action, payload) {
+  try {
+    const generation = Number(env.MAP_AUTH_GENERATION);
+    if (!Number.isSafeInteger(generation) || generation < 1 || !env.MAP_AUTHORITY) return {status:503,data:{error:'Independent auth is not configured'}};
+    const stub=env.MAP_AUTHORITY.get(env.MAP_AUTHORITY.idFromName('map-owner-v1'));
+    const r=await stub.fetch('https://map-auth.internal/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,generation})});
+    if (![200,401,429].includes(r.status)) return {status:503,data:{error:'Auth authority unavailable'}};
+    return {status:r.status,data:await r.json()};
+  } catch { return {status:503,data:{error:'Auth authority unavailable'}}; }
 }
-async function digest(value) { return hex(await crypto.subtle.digest('SHA-256', encoder.encode(value))); }
-function equal(a, b) {
-  if (a.length !== b.length) return false;
-  let difference = 0; for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return difference === 0;
-}
+function authFailure(result) { return response(result.data.error || 'Auth authority unavailable',result.status,result.status===429?{'Retry-After':'300'}:{}); }
 async function readLimitedForm(request) {
   const reader = request.body?.getReader();
   if (!reader) return '';
@@ -52,36 +52,33 @@ export function createIndependentWorker(app) {
       if (url.pathname === '/manifest.webmanifest') headers.set('Content-Type', 'application/manifest+json');
       return new Response(asset.body, { status: asset.status, headers });
     }
-    if (!env.MAP_SESSIONS || !/^[a-f0-9]{64}$/.test(env.MAP_OWNER_PASSWORD_HASH || '') || (env.MAP_OWNER_SALT || '').length < 16) return response('Independent auth is not configured', 503);
+    if (!env.MAP_AUTHORITY || !Number.isSafeInteger(Number(env.MAP_AUTH_GENERATION)) || Number(env.MAP_AUTH_GENERATION) < 1) return response('Independent auth is not configured', 503);
     if (url.pathname === '/signin-with-chatgpt' || url.pathname === '/signout-with-chatgpt') return redirect('/auth/login');
     if (url.pathname === '/auth/login') {
       if (request.method === 'GET') return response(loginHtml, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; manifest-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" });
       if (request.method !== 'POST') return response('Method not allowed', 405);
       if (!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) return response('Invalid form', 415);
       const text = await readLimitedForm(request); if (text === null) return response('Form too large', 413);
-      const attempt = JSON.parse(await env.MAP_SESSIONS.get('attempts') || '{"count":0,"until":0}');
-      const now = Date.now();
-      if (attempt.until > now && attempt.count >= 5) return response('잠시 뒤 다시 시도해 주세요.', 429, { 'Retry-After': '300' });
       const password = new URLSearchParams(text).get('password') || '';
-      if (!password || password.length > 256 || !equal(await passwordHash(password, env.MAP_OWNER_SALT), env.MAP_OWNER_PASSWORD_HASH)) {
-        await env.MAP_SESSIONS.put('attempts', JSON.stringify({ count: (attempt.until > now ? attempt.count : 0) + 1, until: attempt.until > now ? attempt.until : now + 300000 }), { expirationTtl: 300 });
-        return response('로그인 실패. 뒤로 가서 다시 시도해 주세요.', 401);
-      }
-      await env.MAP_SESSIONS.delete('attempts');
-      const token = hex(crypto.getRandomValues(new Uint8Array(32)));
-      await env.MAP_SESSIONS.put(`session:${await digest(token)}`, String(now + lifetime * 1000), { expirationTtl: lifetime });
+      if (!password || password.length > 256) return response('로그인 실패. 뒤로 가서 다시 시도해 주세요.',401);
+      const login=await authority(env,'login',{password});
+      if(login.status!==200) return authFailure(login);
+      const token=login.data.token;
+      if(typeof token!=='string' || !/^[a-f0-9]{64}$/.test(token)) return response('Auth authority unavailable',503);
       return redirect('/', { 'Set-Cookie': cookie(token, lifetime) });
     }
     const matches = (request.headers.get('cookie') || '').split(';').map(v => v.trim()).filter(v => v.startsWith(cookieName + '='));
     const token = matches.length === 1 ? matches[0].slice(cookieName.length + 1) : '';
-    const key = /^[a-f0-9]{64}$/.test(token) ? `session:${await digest(token)}` : null;
-    const expiry = key ? Number(await env.MAP_SESSIONS.get(key)) : 0;
     if (url.pathname === '/auth/logout') {
       if (request.method !== 'POST') return response('Method not allowed', 405);
-      if (key) await env.MAP_SESSIONS.delete(key);
+      const logout=await authority(env,'logout',{token});
+      // Never claim logout succeeded if the durable revocation did not commit.
+      if(logout.status!==200 || logout.data.revoked!==true) return response('로그아웃을 완료하지 못했습니다. 다시 시도해 주세요.',503);
       return redirect('/auth/login', { 'Set-Cookie': cookie('', 0), 'Clear-Site-Data': '"cache", "storage"' });
     }
-    if (!Number.isFinite(expiry) || expiry <= Date.now()) return url.pathname.startsWith('/api/') ? response(JSON.stringify({ error: '소유자 로그인이 필요합니다.' }), 401, { 'Content-Type': 'application/json' }) : redirect('/auth/login');
+    const verified=await authority(env,'verify',{token});
+    if(verified.status!==200) return authFailure(verified);
+    if(verified.data.authenticated!==true) return url.pathname.startsWith('/api/') ? response(JSON.stringify({ error: '소유자 로그인이 필요합니다.' }), 401, { 'Content-Type': 'application/json' }) : redirect('/auth/login');
     const headers = new Headers(request.headers);
     headers.delete('cookie'); headers.set('x-map-owner', 'verified-owner');
     const upstream = await app.fetch(new Request(request, { headers }), env, ctx);

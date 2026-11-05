@@ -17,7 +17,7 @@
 
 독립 Worker가 모든 요청을 먼저 처리한다(`assets.run_worker_first: true`). ChatGPT/Sites ingress나 운영 인증은 변경하지 않는다. 독립 빌드 내부에서만 `getChatGPTUser` 호환 adapter를 대체하며, 인증된 독립 Worker가 넣는 내부 소유자 표시만 읽는다. 들어오는 `oai-*`, `x-map-*` 헤더는 거부한다. 원래 Sites 빌드에는 이 adapter를 적용하지 않는다.
 
-독립 설정이 없으면 앱/API는 503으로 닫힌다. 공개 경로는 명시한 manifest, 아이콘, SW와 정적 JS/CSS/font뿐이다. 앱/API는 세션이 필요하다. POST는 정확한 same-origin `Origin`을 요구하며 cross-site 요청을 거부한다. 로그인은 PBKDF2-SHA256 100,000회 비밀번호 검증, 256-bit 임의 세션, 서버 측 session-key SHA256 저장, 최대 1시간 만료를 사용한다. 쿠키는 `__Host-`, Secure, HttpOnly, SameSite=Strict다. 로그아웃은 서버 세션 삭제, 쿠키 만료, 브라우저 storage/cache 제거를 요청한다. 로그인 실패는 소유자 계정 단위 best-effort 5회/5분으로 제한한다.
+독립 설정이 없으면 앱/API는 503으로 닫힌다. 공개 경로는 명시한 manifest, 아이콘, SW와 정적 JS/CSS/font뿐이다. 앱/API는 세션이 필요하다. POST는 정확한 same-origin `Origin`을 요구하며 cross-site 요청을 거부한다. 로그인은 PBKDF2-SHA256 100,000회 비밀번호 검증, 256-bit 임의 세션, 서버 측 session-key SHA256 저장, 최대 1시간 만료를 사용한다. 쿠키는 `__Host-`, Secure, HttpOnly, SameSite=Strict다. 로그아웃은 서버 세션 삭제, 쿠키 만료, 브라우저 storage/cache 제거를 요청한다. 후속 변경에서는 한 소유자 Durable Object authority가 로그인 시도·세션·로그아웃을 직렬화한다. 로그인 실패는 소유자 계정 단위 5회/5분으로 제한한다. KV 또는 isolate-local 인증 fallback은 없다.
 
 manifest/아이콘은 기존 MAP 브랜드를 재사용한다. Android 및 iPhone 설치 안내를 제공하지만 설치 가능 판정을 꾸며내는 버튼은 없다. SW는 등록/활성화만 하고 fetch를 가로채거나 Cache Storage를 쓰지 않는다. 모든 독립 응답은 `no-store`다. 검색 결과·인증·위치를 오프라인 제공하지 않는다. 기존 30분 sessionStorage checkpoint 동작은 보존하며 로그아웃 시 지운다. 이는 새 offline cache가 아니다.
 
@@ -37,7 +37,7 @@ MAP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium python scripts/dev.py test-indepe
 python scripts/dev.py preview-independent
 ```
 
-`preview-independent`는 테스트 전용 Miniflare Worker/KV, synthetic owner와 지도 mock만 사용하며 loopback 임의 포트에서 실행한다. 주소와 PID는 ignored `.sites-runtime/independent-preview.json`에 기록한다. 터미널에 표시하는 비밀번호는 synthetic fixture일 뿐 실제 자격증명이 아니다. 이 미리보기는 CSP로 브라우저 외부 요청도 차단하고 같은 출처에서 synthetic SDK를 주입한다. 실제 서버 outbound는 fixture allowlist 밖에서 실패한다. 종료는 실행 중인 터미널에서 Ctrl+C다. 새 환경을 만들거나 외부 호스팅을 하지 않는다.
+`preview-independent`는 테스트 전용 Miniflare Worker/SQLite Durable Object, synthetic owner와 지도 mock만 사용하며 loopback 임의 포트에서 실행한다. 주소와 PID는 ignored `.sites-runtime/independent-preview.json`에 기록한다. 터미널에 표시하는 비밀번호는 synthetic fixture일 뿐 실제 자격증명이 아니다. 이 미리보기는 CSP로 브라우저 외부 요청도 차단하고 같은 출처에서 synthetic SDK를 주입한다. 실제 서버 outbound는 fixture allowlist 밖에서 실패한다. 종료는 실행 중인 터미널에서 Ctrl+C다. 새 환경을 만들거나 외부 호스팅을 하지 않는다.
 
 ## 검증과 남은 경계
 
@@ -48,8 +48,8 @@ python scripts/dev.py preview-independent
 아직 필요한 단계:
 
 1. 독립 HTTPS 호스팅의 정확한 계정·대상, 무료 요금/한도와 과금 차단 상한을 확인한다. 현재 실행 환경은 Cloudflare outbound identity/배포 credential이 없으며 Cloudflare 서비스 도메인도 허용 대상에 없다. 신규 인증이나 네트워크 정책 변경은 실행하지 않았다.
-2. 사용자가 지정하는 독립 소유자 인증 설정 `MAP_ORIGIN`, `MAP_OWNER_SALT`, `MAP_OWNER_PASSWORD_HASH`와 독립 `MAP_SESSIONS` binding이 필요하다. 지금 KV ID는 로컬용 placeholder다. 실제 비밀번호/해시/키를 생성하거나 운영에서 복사하지 않았다. provider credentials도 이전하지 않았다.
-3. Cloudflare KV는 eventual consistency이므로 분산 배포에서 logout revocation과 로그인 throttle의 즉시 전역 일관성은 보장되지 않는다. synthetic 로컬 삭제/만료/재사용 거부만 검증했다. production 인증에는 강한 일관성을 가진 세션/제한 저장소 또는 검증된 독립 identity provider 선택과 검토가 남았다. 현재 비밀번호 검증의 production CPU/요금 한도도 실측하지 않았다.
+2. 사용자가 지정하는 독립 소유자 인증 설정 `MAP_ORIGIN`, `MAP_OWNER_SALT`, `MAP_OWNER_PASSWORD_HASH`, 단조 증가하는 `MAP_AUTH_GENERATION`과 독립 `MAP_AUTHORITY` Durable Object binding이 필요하다. 현재 class/binding/migration 설정은 로컬 후보 코드일 뿐 원격 namespace/migration을 생성·적용하지 않았다. 실제 비밀번호/해시/키를 생성하거나 운영에서 복사하지 않았다. provider credentials도 이전하지 않았다.
+3. 최초 e7f07a6 후보의 KV eventual-consistency 한계는 후속 로컬 authority 후보로 교체했다. 실제 workerd에서 복수 ingress·프로세스 재시작·로그아웃 무효화·동시 시도 제한·자격증명 세대 교체를 검증한다. 상세 보장 범위와 실제 운영 선택은 `docs/INDEPENDENT_AUTHORITY.md`에 기록한다. 원격 binding/provisioning과 실제 지역 간 지연·장애·업데이트 전파·CPU/요금 한도는 여전히 검증하지 않았다.
 4. provider 연결은 별도 비용 승인과 독립 도메인 등록이 필요하다. 실제 Kakao/NAVER/Google 호출, 실제 타일, 실제 GPS는 검증하지 않았다.
 5. 실제 HTTPS 응답과 Android/iPhone 설치·standalone·세션·모바일 재시작을 검증해야 한다. 로컬 manifest/icon/SW 성공을 실제 휴대폰 설치 성공으로 보고하지 않는다.
 6. GitHub repository는 public, 연결 앱은 push/admin 권한을 보고하며 열린 PR은 #6이다. 실행 환경 자체에 GitHub outbound identity는 없다. 기존 workflow는 standard `ubuntu-latest`와 운영 비밀값 없는 검사지만, 외부 hooks 및 계정별 과금 조건은 이 도구 범위에서 확인되지 않았다. 비용 상한이 불명확한 실행을 일으키지 않도록 이번 후보의 원격 push/새 PR 생성은 보류하고 로컬 commit·patch·bundle 및 PR 초안을 보존한다. 이 보류는 접근 거절이 아니라 게시 전 검증 미충족이다.
